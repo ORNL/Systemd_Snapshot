@@ -1,0 +1,636 @@
+{
+   "title": "graph_style",
+   "defaults": [
+      {
+         "visualProperty": "COMPOUND_NODE_PADDING",
+         "value": 10.0
+      },
+      {
+         "visualProperty": "COMPOUND_NODE_SHAPE",
+         "value": "ROUND_RECTANGLE"
+      },
+      {
+         "visualProperty": "DING_RENDERING_ENGINE_ROOT",
+         "value": "org.cytoscape.view.presentation.property.NullVisualProperty$NullDataTypeImpl@6fc9d66d"
+      },
+      {
+         "visualProperty": "EDGE",
+         "value": "DefaultVisualizableVisualProperty(id=EDGE, name=Edge Visual Property)"
+      },
+      {
+         "visualProperty": "EDGE_BEND",
+         "value": null
+      },
+      {
+         "visualProperty": "EDGE_CURVED",
+         "value": true
+      },
+      {
+         "visualProperty": "EDGE_LABEL",
+         "value": ""
+      },
+      {
+         "visualProperty": "EDGE_LABEL_AUTOROTATE",
+         "value": false
+      },
+      {
+         "visualProperty": "EDGE_LABEL_BACKGROUND_COLOR",
+         "value": "#B6B6B6"
+      },
+      {
+         "visualProperty": "EDGE_LABEL_BACKGROUND_SHAPE",
+         "value": "NONE"
+      },
+      {
+         "visualProperty": "EDGE_LABEL_BACKGROUND_TRANSPARENCY",
+         "value": 255
+      },
+      {
+         "visualProperty": "EDGE_LABEL_COLOR",
+         "value": "#000000"
+      },
+      {
+         "visualProperty": "EDGE_LABEL_FONT_FACE",
+         "value": "SansSerif.plain,plain,10"
+      },
+      {
+         "visualProperty": "EDGE_LABEL_FONT_SIZE",
+         "value": 8
+      },
+      {
+         "visualProperty": "EDGE_LABEL_POSITION",
+         "original_value": "C,C,c,0.00,0.00",
+         "value": "S,NW,l,0.00,5.00"
+      },
+      {
+         "visualProperty": "EDGE_LABEL_ROTATION",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "EDGE_LABEL_TRANSPARENCY",
+         "value": 255
+      },
+      {
+         "visualProperty": "EDGE_LABEL_WIDTH",
+         "value": 200.0
+      },
+      {
+         "visualProperty": "EDGE_LINE_TYPE",
+         "value": "SOLID",
+         "_allowable_values": [
+             "ZIGZAG",
+             "SINEWAVE",
+             "EQUAL_DASH",
+             "DASH_DOT",
+             "MARQUEE_EQUAL",
+             "CONTIGUOUS_ARROW",
+             "VERTICAL_SLASH",
+             "SOLID",
+             "BACKWARD_SLASH",
+             "FORWARD_SLASH",
+             "MARQUEE_DASH",
+             "MARQUEE_DASH_DOT",
+             "SEPARATE_ARROW",
+             "DOT",
+             "PARALLEL_LINES",
+             "LONG_DASH"]
+      },
+      {
+         "visualProperty": "EDGE_PAINT",
+         "value": "#808080"
+      },
+      {
+         "visualProperty": "EDGE_SELECTED",
+         "value": false
+      },
+      {
+         "visualProperty": "EDGE_SELECTED_PAINT",
+         "value": "#FF0000"
+      },
+      {
+         "visualProperty": "EDGE_SOURCE_ARROW_SELECTED_PAINT",
+         "value": "#FFFF00"
+      },
+      {
+         "visualProperty": "EDGE_SOURCE_ARROW_SHAPE",
+         "value": "NONE",
+         "_allowable_values": [
+             "OPEN_CIRCLE",
+             "OPEN_DELTA",
+             "NONE",
+             "T",
+             "CIRCLE",
+             "CROSS_OPEN_DELTA",
+             "DELTA_SHORT_2",
+             "ARROW",
+             "SQUARE",
+             "OPEN_DIAMOND",
+             "DELTA",
+             "HALF_TOP",
+             "OPEN_HALF_CIRCLE",
+             "HALF_CIRCLE",
+             "ARROW_SHORT",
+             "CROSS_DELTA",
+             "DIAMOND_SHORT_2",
+             "HALF_BOTTOM",
+             "OPEN_SQUARE",
+             "DIAMOND",
+             "DIAMOND_SHORT_1",
+             "DELTA_SHORT_1"
+         ]
+      },
+      {
+         "visualProperty": "EDGE_SOURCE_ARROW_SIZE",
+         "value": 6.0
+      },
+      {
+         "visualProperty": "EDGE_SOURCE_ARROW_UNSELECTED_PAINT",
+         "value": "#000000"
+      },
+      {
+         "visualProperty": "EDGE_STACKING",
+         "value": "AUTO_BEND"
+      },
+      {
+         "visualProperty": "EDGE_STACKING_DENSITY",
+         "value": 0.5
+      },
+      {
+         "visualProperty": "EDGE_STROKE_SELECTED_PAINT",
+         "value": "#FF0000"
+      },
+      {
+         "visualProperty": "EDGE_STROKE_UNSELECTED_PAINT",
+         "value": "#404040"
+      },
+      {
+         "visualProperty": "EDGE_TARGET_ARROW_SELECTED_PAINT",
+         "value": "#FFFF00"
+      },
+      {
+         "visualProperty": "EDGE_TARGET_ARROW_SHAPE",
+         "value": "DELTA"
+      },
+      {
+         "visualProperty": "EDGE_TARGET_ARROW_SIZE",
+         "value": 8.0
+      },
+      {
+         "visualProperty": "EDGE_TARGET_ARROW_UNSELECTED_PAINT",
+         "value": "#000000"
+      },
+      {
+         "visualProperty": "EDGE_TOOLTIP",
+         "value": ""
+      },
+      {
+         "visualProperty": "EDGE_TRANSPARENCY",
+         "value": 255
+      },
+      {
+         "visualProperty": "EDGE_UNSELECTED_PAINT",
+         "value": "#252525"
+      },
+      {
+         "visualProperty": "EDGE_VISIBLE",
+         "value": true
+      },
+      {
+         "visualProperty": "EDGE_WIDTH",
+         "value": 1.0
+      },
+      {
+         "visualProperty": "EDGE_Z_ORDER",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NETWORK",
+         "value": "DefaultVisualizableVisualProperty(id=NETWORK, name=Network Visual Property)"
+      },
+      {
+         "visualProperty": "NETWORK_ANNOTATION_SELECTION",
+         "value": false
+      },
+      {
+         "visualProperty": "NETWORK_BACKGROUND_PAINT",
+         "value": "#FFFFFF"
+      },
+      {
+         "visualProperty": "NETWORK_CENTER_X_LOCATION",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NETWORK_CENTER_Y_LOCATION",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NETWORK_CENTER_Z_LOCATION",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NETWORK_DEPTH",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NETWORK_EDGE_SELECTION",
+         "value": true
+      },
+      {
+         "visualProperty": "NETWORK_FORCE_HIGH_DETAIL",
+         "value": false
+      },
+      {
+         "visualProperty": "NETWORK_HEIGHT",
+         "value": 400.0
+      },
+      {
+         "visualProperty": "NETWORK_NODE_LABEL_SELECTION",
+         "value": false
+      },
+      {
+         "visualProperty": "NETWORK_NODE_SELECTION",
+         "value": true
+      },
+      {
+         "visualProperty": "NETWORK_SCALE_FACTOR",
+         "value": 1.0
+      },
+      {
+         "visualProperty": "NETWORK_SIZE",
+         "value": 550.0
+      },
+      {
+         "visualProperty": "NETWORK_TITLE",
+         "value": ""
+      },
+      {
+         "visualProperty": "NETWORK_WIDTH",
+         "value": 550.0
+      },
+      {
+         "visualProperty": "NODE",
+         "value": "DefaultVisualizableVisualProperty(id=NODE, name=Node Visual Property)"
+      },
+      {
+         "visualProperty": "NODE_BORDER_PAINT",
+         "value": "#000000"
+      },
+      {
+         "visualProperty": "NODE_BORDER_STROKE",
+         "value": "SOLID"
+      },
+      {
+         "visualProperty": "NODE_BORDER_TRANSPARENCY",
+         "value": 255
+      },
+      {
+         "visualProperty": "NODE_BORDER_WIDTH",
+         "value": 2.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_1",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_2",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_3",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_4",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_5",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_6",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_7",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_8",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_9",
+         "value": "org.cytoscape.cg.model.NullCustomGraphics,0,[ Remove Graphics ],"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_1",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_2",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_3",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_4",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_5",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_6",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_7",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_8",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_POSITION_9",
+         "value": "C,C,c,0.00,0.00"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_1",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_2",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_3",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_4",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_5",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_6",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_7",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_8",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMGRAPHICS_SIZE_9",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_1",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_1, name=Node Custom Paint 1)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_2",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_2, name=Node Custom Paint 2)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_3",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_3, name=Node Custom Paint 3)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_4",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_4, name=Node Custom Paint 4)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_5",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_5, name=Node Custom Paint 5)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_6",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_6, name=Node Custom Paint 6)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_7",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_7, name=Node Custom Paint 7)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_8",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_8, name=Node Custom Paint 8)"
+      },
+      {
+         "visualProperty": "NODE_CUSTOMPAINT_9",
+         "value": "DefaultVisualizableVisualProperty(id=NODE_CUSTOMPAINT_9, name=Node Custom Paint 9)"
+      },
+      {
+         "visualProperty": "NODE_DEPTH",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_FILL_COLOR",
+         "value": "#C80000"
+      },
+      {
+         "visualProperty": "NODE_HEIGHT",
+         "value": 30.0
+      },
+      {
+         "visualProperty": "NODE_LABEL",
+         "value": ""
+      },
+      {
+         "visualProperty": "NODE_LABEL_BACKGROUND_COLOR",
+         "value": "#B6B6B6"
+      },
+      {
+         "visualProperty": "NODE_LABEL_BACKGROUND_SHAPE",
+         "value": "NONE"
+      },
+      {
+         "visualProperty": "NODE_LABEL_BACKGROUND_TRANSPARENCY",
+         "value": 255
+      },
+      {
+         "visualProperty": "NODE_LABEL_COLOR",
+         "value": "#000000"
+      },
+      {
+         "visualProperty": "NODE_LABEL_FONT_FACE",
+         "value": "SansSerif.plain,plain,12"
+      },
+      {
+         "visualProperty": "NODE_LABEL_FONT_SIZE",
+         "value": 8
+      },
+      {
+         "visualProperty": "NODE_LABEL_POSITION",
+         "value": "C,C,c,0.00,0.00",
+         "_comment": "Node Anchor Points (e.g., C = Center, NE = Northeast), Label Anchor Points, Text Justification (l,r,c), X Offset, Y Offset; best to play around with this in Cytoscape to get the settings you want."
+      },
+      {
+         "visualProperty": "NODE_LABEL_ROTATION",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_LABEL_TRANSPARENCY",
+         "value": 255
+      },
+      {
+         "visualProperty": "NODE_LABEL_WIDTH",
+         "value": 200.0
+      },
+      {
+         "visualProperty": "NODE_NESTED_NETWORK_IMAGE_VISIBLE",
+         "value": true
+      },
+      {
+         "visualProperty": "NODE_PAINT",
+         "value": "#787878"
+      },
+      {
+         "visualProperty": "NODE_SELECTED",
+         "value": false
+      },
+      {
+         "visualProperty": "NODE_SELECTED_PAINT",
+         "value": "#FFFF00"
+      },
+      {
+         "visualProperty": "NODE_SHAPE",
+         "value": "ELLIPSE",
+         "_allowable_values": [
+             "OCTAGON", 
+             "ROUND_RECTANGLE", 
+             "PARALLELOGRAM", 
+             "RECTANGLE", 
+             "VEE", 
+             "DIAMOND", 
+             "TRIANGLE", 
+             "ELLIPSE", 
+             "HEXAGON"]
+      },
+      {
+         "visualProperty": "NODE_SIZE",
+         "value": 200.0
+      },
+      {
+         "visualProperty": "NODE_TOOLTIP",
+         "value": ""
+      },
+      {
+         "visualProperty": "NODE_TRANSPARENCY",
+         "value": 255
+      },
+      {
+         "visualProperty": "NODE_VISIBLE",
+         "value": true
+      },
+      {
+         "visualProperty": "NODE_WIDTH",
+         "value": 200.0
+      },
+      {
+         "visualProperty": "NODE_X_LOCATION",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_Y_LOCATION",
+         "value": 0.0
+      },
+      {
+         "visualProperty": "NODE_Z_LOCATION",
+         "value": 0.0
+      }
+   ],
+   "mappings": [
+
+
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "interaction",
+            "mappingColumnType": "String",
+            "visualProperty": "EDGE_LABEL"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "edge_line_type",
+            "mappingColumnType": "String",
+            "visualProperty": "EDGE_LINE_TYPE"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "edge_color",
+            "mappingColumnType": "String",
+            "visualProperty": "EDGE_COLOR"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "source_arrow_shape",
+            "mappingColumnType": "String",
+            "visualProperty": "EDGE_SOURCE_ARROW_SHAPE"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "target_arrow_shape",
+            "mappingColumnType": "String",
+            "visualProperty": "EDGE_TARGET_ARROW_SHAPE"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "edge_label_color",
+            "mappingColumnType": "String",
+            "visualProperty": "EDGE_LABEL_COLOR"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "node_label",
+            "mappingColumnType": "String",
+            "visualProperty": "NODE_LABEL"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "node_label_color",
+            "mappingColumnType": "String",
+            "visualProperty": "NODE_LABEL_COLOR"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "node_label_width",
+            "mappingColumnType": "Double",
+            "visualProperty": "NODE_LABEL_WIDTH"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "node_fill_color",
+            "mappingColumnType": "String",
+            "visualProperty": "NODE_FILL_COLOR"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "node_shape",
+            "mappingColumnType": "String",
+            "visualProperty": "NODE_SHAPE"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "node_height",
+            "mappingColumnType": "Double",
+            "visualProperty": "NODE_HEIGHT"
+        },
+        {
+            "mappingType": "passthrough",
+            "mappingColumn": "node_width",
+            "mappingColumnType": "Double",
+            "visualProperty": "NODE_WIDTH"
+        }
+    ]
+}

@@ -1,0 +1,126 @@
+From:	donotreply@ornl.gov
+Sent:	Tuesday, April 9, 2024 4:11 PM
+To:	Rader, Carol D.; Cochran III, Eugene; Leskovjan, Andreana
+Cc:	Graham, Edward W.; Busch, Timothy A.
+Subject:	Notification regarding Export Controls Service Request # GEN-120066
+
+EXPORT CONTROL DETERMINATION NUMBER: COPY-2024-120066
+
+April 9, 2024
+
+By submitting the attached Opens Source Copyright information, Export Control understands that 
+author(s) and sponsor concur with the request and that the copyright materials do not include security 
+controlled data. The software does not appear to be specifically designed, developed, configured, 
+adapted, or modified for a military, missile, satellite, or other controlled use listed on the USML. Based 
+upon the information provided the software does not include encryption,  crypto-analytic functions or 
+support prohibitions under 15 CFR 744.  The software  does not appear to require additional DOE non-
+proliferation review nor does this software require notification to the Department of Commerce due to 
+encryption or other controls.  The software and associated documentation is intended for release as 
+Open Source Software (OSS).  The publication of the software under a OSS license does not require an 
+export control license.
+
+Export Control has made the following export control determination on a request to review Open Source 
+Review Requested - ID: 81951603 –  systemd Snapshot Technology/Item Classification
+Based on available information provided and/or in discussions with the cited parties, the Open Source 
+Review Requested - ID: 81951603 --   systemd Snapshot meets the following definition for fundamental 
+research:  
+
+“Research in science, engineering or mathematics, the results of which ordinarily are published and 
+shared broadly within the research community, and for which the researchers have not accepted 
+restrictions on publication for proprietary or national security reasons.” 
+
+Therefore, the research output does not fall under export control jurisdiction and is releasable without 
+restriction.
+
+Open Source Copyright Submission Information:
+Problem that was solved:
+More embedded systems are using Linux as their operating system foundation. In some cases, the more 
+modern systemd initialization system is being used. Systemd comes with many tools to understand the 
+many files that define how the system's services start; however, the system must be RUNNING in order 
+to use them since many of the artifacts are maintained in memory. When security analysis is performed 
+on an embedded system, the analyst may not be able to operate the system firmware, or if the system 
+can be run, the aforementioned systemd tools are not readily available. These analysis constraints place 
+the burden of discerning how the firmware initializes, which parameters critical services use, and the 
+order in which services are started on the analyst without purpose-built tools for the job. Our systemd 
+snapshot capability seeks to mitigate these barriers to analysis by enabling an analyst to collect, 
+understand and consolidate systemd startup details in a more efficient manner when only the firmware 
+image is available and it cannot be easily run. Having such information makes performing security 
+assessments on embedded systems easier.
+
+Solution provided by the computer code:
+Systemd Snapshot crawls a Linux filesystem according to the systemd specification since parsing order is 
+important. It parses the many files that define a system's startup semantics and consolidates them into 
+data structures for manipulation and summarization into other forms. The key point is the system itself 
+does not need to start, the file system remains a static image. So, we perform analysis on a machine of 
+our choosing instead of relying on performing analysis using the same system that is relying on systemd 
+to initialize. Systemd snapshot also seeks to understand which information actually defines system 
+initialization and which information is not used (e.g., some information may be overridden and some 
+may just be mistakenly ignored) -- lets call these initialization semantics. In other words, the tool aims to 
+aggregate data and re-create the information that resides in memory on a running system. An additional 
+feature that we provide is automatic collection of binary library dependencies and collection and 
+association of human-readable strings. This information is not necessary for a RUNNING system, but is 
+extremely valuable for system analysis and security assessment. We provide summarization in file 
+formats and translation into a graph that can be visualized in third-party tools. Additionally, this 
+capability can perform targeted analysis on specific subsequences of the initialization process. Since 
+these systems can be extremely complex and incorporate MANY services that work together, it is 
+sometimes important to focus the analysis on a particular subset of services a system requires while 
+ignoring others. Finally, this capability can modify a systemd initialization system in order to better 
+facilitate emulation of a system when the hardware is not available and more targeted introspection is 
+necessary.
+
+Computer code’s functionality:
+- aggregate all data from systemd initialization system
+- compare data and startups between two systemd systems or between versions of the same system
+- obtain file forensics information on binaries called during startup
+- provide explicit mapping of implicit dependencies of systemd unit files
+- show startup relationships between unit files visually through a graph or via JSON output
+- perform targeted analysis on subsets of unit file dependencies
+- modify systemd initialization system to better facilitate emulation of a system
+
+Advantages / Benefits:
+Based on our research no tools exist that perform this capability WITHOUT actually running the firmware 
+that makes use of Systemd. The capability can make assessment of a system much easier since it 
+consolidates the information contained in many files into a single location. In short, we consolidate and 
+associate Linux system elements and repackage them in more understandable forms.
+
+
+Regulatory Requirements
+This determination is issued in accordance with the Department of Commerce (DOC) under 15 CFR Parts 
+730-774, or Department of State (DOS) under 22 CFR Parts 120-130, or Nuclear Regulatory Commission 
+(NRC) under 10 CFR Part 110, or Department of Energy (DOE) 10 CFR Part 810, along with other 
+applicable laws and regulations related to export control.
+
+For additional information and references please go to the Export Control Web Page and the Export 
+Control SBMS Web Page at the following URLs:
+
+SBMS Information Protection Site:  
+https://gcc02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsbms.ornl.gov%2Fsbms%2Fsbmse
+arch%2Fsubjarea%2FInfoProtect%2Fsa.cfm&data=05%7C02%7Cgrahamew%40ornl.gov%7Ca1b12d86ff1f
+45cc74c708dc58d134a3%7Cdb3dbd434c4b45449f8a0553f9f5f25e%7C1%7C0%7C638482902808507766
+%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6
+Mn0%3D%7C0%7C%7C%7C&sdata=iMZiYPkO%2FasuYjtYBN756tRyE%2FVP6gd2%2BzrjleX34Qs%3D&res
+erved=0
+ORNL SBMS Export Control Subject Area - 
+https://gcc02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fsbms.ornl.gov%2Fsbms%2Fsbmse
+arch%2Fsubjarea%2Fexport%2Fpro1.cfm&data=05%7C02%7Cgrahamew%40ornl.gov%7Ca1b12d86ff1f4
+5cc74c708dc58d134a3%7Cdb3dbd434c4b45449f8a0553f9f5f25e%7C1%7C0%7C638482902808517052
+%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6
+Mn0%3D%7C0%7C%7C%7C&sdata=LJhB7b8YODvDoIHfkr4grTciSEbPnrFXoJy2faJ60QY%3D&reserved=0
+ORNL Export Control Web Page – 
+https://gcc02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fornl.sharepoint.com%2Fsites%2F
+ornl%2Fec%2FPages%2FExportControl.aspx&data=05%7C02%7Cgrahamew%40ornl.gov%7Ca1b12d86ff1
+f45cc74c708dc58d134a3%7Cdb3dbd434c4b45449f8a0553f9f5f25e%7C1%7C0%7C63848290280852200
+8%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6
+Mn0%3D%7C0%7C%7C%7C&sdata=I3kCHQ8oE5N6twY37NbfUfclAlneVy0h54vEOEN4t1Y%3D&reserved=
+0
+
+If there are any questions associated with this export control determination please contact the Export 
+Control Department for clarification and/or guidance.  
+ 
+
+Click here to view this request in the Export Controls Portal: 
+https://gcc02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fecportal.ornl.gov%2Frequest%2Fi
+d%2F120066&data=05%7C02%7Cgrahamew%40ornl.gov%7Ca1b12d86ff1f45cc74c708dc58d134a3%7Cd
+b3dbd434c4b45449f8a0553f9f5f25e%7C1%7C0%7C638482902808526472%7CUnknown%7CTWFpbGZs
+b3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C0%7C%7C%7C&s
+data=9tR9VEK1j7WuvhQS%2Fis9Z5%2BDt4xD%2F2eTgQm41kgB%2FHk%3D&reserved=0
