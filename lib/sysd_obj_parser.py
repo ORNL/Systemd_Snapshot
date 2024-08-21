@@ -28,9 +28,64 @@ import logging
 
 from pathlib import Path
 from os import readlink, getcwd, chdir, path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from lib.unit_file_lists import possible_unit_opts, space_delim_opts
+
+
+def parse_fstab( fstab_path: str, master_struct: Dict, log: logging) -> Dict[ str, Union[ Dict[ str, str ], List[str] ] ]:
+	'''Parse a filesystem table file to emulate the unit files that will be created dynamically
+		by systemd when a system boots up.'''
+	
+	fstab = Path( fstab_path ).read_text()
+	relevant_lines = []
+
+	for line in fstab.split('\n'):
+		if len(line) != 0 and '#' not in line[0]:
+			relevant_lines.append(line.split())
+
+	# Translate the mount path in fstab into a unit file name
+	for entry in relevant_lines:
+		if entry[1] == '/':
+			name = '-'
+		else:
+			name = '-'.join( entry[1].split('/')[1:] )
+
+		# Check to see if the unit file has already been recorded somehow
+		## use regex here to consolidate
+		if f'{name}.mount' not in master_struct and f'{name}.automount' not in master_struct:
+			temp_unit = {
+				'metadata': {
+					'file_type': 'fstab_unit'
+				},
+				'Documentation': [
+					"man:fstab(5)",
+					"man:systemd-fstab-generator(8)"
+				],
+				'Description':	['This unit file will be dynamically generated when systemd parses the fstab file when booting up'],
+				'SourcePath':	['/etc/fstab'],
+				'What':			[f'/dev/disk/by-label/{entry[0].split('=')[-1]}'],
+				'Where':		[f'{entry[1]}'],
+				'Type':			[f'{entry[2]}'],
+				'Before':		['local-fs.target'],
+				'After':		[f'blockdev@dev-disk-by\\x2dlabel-{entry[0].split('=')[-1]}.target']
+			}
+
+			# All options other than 'defaults' create an options key
+			if entry[3] != 'defaults':
+				temp_unit['Options'] = [ entry[3] ]
+
+			# Check to see if the mount is supposed to be a remote filesystem
+			try:
+				if len( entry[0].split('/')[2].split('.') ) == 4:
+					temp_unit['Before'] = ['remote-fs.target']
+			
+			except IndexError as e:
+				log.debug( f'Got "{e}" when checking for a remote file path in fstab.' )
+
+		master_struct.update({ f'/run/systemd/generator/{name}.mount': temp_unit })
+
+	return master_struct
 
 
 
@@ -370,63 +425,125 @@ class UnitFile:
 		'''SystemdFileFactory.UnitFile.check_implicit_dependencies()
 		
 		Handle all implicit deps that are created based on the unit file type. Default 
-		deps are automatically placed in the unit file upon creation, implicit deps are not.
-
-		- TODO: look at escaping logic, slices, device paths, and auto/mount paths and check for paths on the system?'''
+		deps are automatically placed in the unit file upon creation, implicit deps are not.'''
 
 		# systemd.automount(5), automatic dependencies, implicit dependencies
 		if unit_type == 'automount':
-			self.unit_struct['metadata'].update({ 'Before': [ f'{self.name.split(".")[0]}.mount' ] })
+			if 'Before' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['Before'].extend( [ f'{self.name.split(".")[0]}.mount' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'Before': [ f'{self.name.split(".")[0]}.mount' ] })
 
 		# systemd.path(5), description, para 3
-		elif unit_type == 'path' and 'Unit' not in self.unit_struct:
-			self.unit_struct['metadata'].update({ 
-				'iPath_for': [ f'{self.name.split(".")[0]}.service' ],
-				'Before': [ f'{self.name.split(".")[0]}.service' ]
-				})
+		if unit_type == 'path' and 'Unit' not in self.unit_struct:
+			if 'iPath_for' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['iPath_for'].extend( [ f'{self.name.split(".")[0]}.service' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'iPath_for': [ f'{self.name.split(".")[0]}.service' ] })
+
+			if 'Before' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['Before'].extend( [ f'{self.name.split(".")[0]}.service' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'Before': [ f'{self.name.split(".")[0]}.service' ] })
 
 		# systemd.socket(5), description, para 4
-		elif unit_type == 'socket' and 'Service' not in self.unit_struct:
-			self.unit_struct['metadata'].update({ 'iSocket_of': [ f'{self.name.split(".")[0]}.service' ] })
+		if unit_type == 'socket' and 'Service' not in self.unit_struct:
+			if 'iSocket_of' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['iSocket_of'].extend( [ f'{self.name.split(".")[0]}.service' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'iSocket_of': [ f'{self.name.split(".")[0]}.service' ] })
 
 		# systemd.socket(5), automatic dependencies, implicit dependencies
-		elif unit_type == 'socket' and 'BindToDevice' in self.unit_struct:
-			self.unit_struct['metadata'].update({ 'BindsTo': [ self.unit_struct['BindsToDevice'] ] })
+		if unit_type == 'socket' and 'BindToDevice' in self.unit_struct:
+			if 'BindsTo' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['BindsTo'].extend( [ f'{self.unit_struct['BindToDevice']}' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'BindsTo': [ self.unit_struct['BindToDevice'] ] })
+			
+			if 'After' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['After'].extend( [ f'{self.name.split(".")[0]}.service' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'After': [ f'{self.name.split(".")[0]}.service' ] })
 
 		# systemd.service(5), automatic dependencies, implicit dependencies, bullet 1
-		elif unit_type == 'service' and 'Type' in self.unit_struct:
+		if unit_type == 'service' and 'Type' in self.unit_struct:
 			if self.unit_struct['Type'] == 'dbus':
-				self.unit_struct['metadata'].update({ 'Requires': ['dbus.socket'], 'After': ['dbus.socket'] })
+				if 'Requires' in self.unit_struct['metadata']:
+					self.unit_struct['metadata']['Requires'].extend( [ 'dbus.socket' ] )
+				else:
+					self.unit_struct['metadata'].update({ 'Requires': [ 'dbus.socket' ] })
+				
+				if 'After' in self.unit_struct['metadata']:
+					self.unit_struct['metadata']['After'].extend( [ 'dbus.socket' ] )
+				else:
+					self.unit_struct['metadata'].update({ 'After': [ 'dbus.socket' ] })
 		
 		# systemd.service(5), automatic dependencies, implicit dependencies, bullet 2
-		elif unit_type == 'service' and 'Sockets' in self.unit_struct:
-			socket_unit_list = [ unit for unit in self.unit_struct['Sockets'].split(' ') ]
-			self.unit_struct['metadata'].update({
-				'Wants': socket_unit_list,
-				'After': socket_unit_list
-				})
+		if unit_type == 'service' and 'Sockets' in self.unit_struct:
+			if isinstance(self.unit_struct['Sockets'], str):
+				socket_unit_list = [ unit for unit in self.unit_struct['Sockets'].split(' ') ]
+			elif isinstance(self.unit_struct['Sockets'], list):
+				socket_unit_list = self.unit_struct['Sockets']
+			else:
+				print( f'Socket unit list is expected to be a string or a list, but got {type(self.unit_struct['Sockets'])}' )
+
+			if 'Wants' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['Wants'].extend( socket_unit_list )
+			else:
+				self.unit_struct['metadata'].update({ 'Wants': socket_unit_list })
+			
+			if 'After' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['After'].extend( socket_unit_list )
+			else:
+				self.unit_struct['metadata'].update({ 'After': socket_unit_list })
 
 		# systemd.timer(5), description, para 3/ systemd.timer(5), implicit dependencies, bullet 1
-		elif unit_type == 'timer' and 'Unit' not in self.unit_struct:
-			self.unit_struct['metadata'].update({ 
-				'iTimer_for': [ f'{self.name.split(".")[0]}.service' ],
-				'Before': [ f'{self.name.split(".")[0]}.service' ]
-				})
+		if unit_type == 'timer' and 'Unit' not in self.unit_struct:
+			if 'iTimer_for' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['iTimer_for'].extend( [ f'{self.name.split(".")[0]}.service' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'iTimer_for': [ f'{self.name.split(".")[0]}.service' ] })
+
+			if 'Before' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['Before'].extend( [ f'{self.name.split(".")[0]}.service' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'Before': [ f'{self.name.split(".")[0]}.service' ] })
 
 		# systemd.exec(5), implicit dependencies, bullet 4
-		elif 'TTYPath' in self.unit_struct:
-			self.unit_struct['metadata'].update({ 'After': ['systemd-vconsole-setup.service'] })
+		if 'TTYPath' in self.unit_struct:
+			if 'After' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['After'].extend( ['systemd-vconsole-setup.service'] )
+			else:
+				self.unit_struct['metadata'].update({ 'After': ['systemd-vconsole-setup.service'] })
 		
 		# systemd.exec(5), implicit dependencies, bullet 5
-		elif 'LogNamespace' in self.unit_struct:
-			self.unit_struct['metadata'].update({ 'Requires': ['systemd-journald@.service'] })
+		if 'LogNamespace' in self.unit_struct:
+			if 'Requires' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['Requires'].extend( [ 'systemd-journald@.service' ] )
+			else:
+				self.unit_struct['metadata'].update({ 'Requires': [ 'systemd-journald@.service' ] })
 
 		# systemd.resource-control(5), implicit dependencies, bullet 1
-		elif 'Slice' in self.unit_struct:
+		if 'Slice' in self.unit_struct:
+			if 'Requires' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['Requires'].extend( [ self.unit_struct['Slice'] ] )
+			else:
+				self.unit_struct['metadata'].update({ 'Requires': [ self.unit_struct['Slice'] ] })
+			
+			if 'After' in self.unit_struct['metadata']:
+				self.unit_struct['metadata']['After'].extend( [ self.unit_struct['Slice'] ] )
+			else:
+				self.unit_struct['metadata'].update({ 'After': [ self.unit_struct['Slice'] ] })
+
+		# Two different references here, check dictionary updates for more info.  Currently I haven't seen
+		# any unit file instances, only symlinks.  These are being recorded w/o needing this implicit dep.
+		if '@' in self.name and len( self.name.split('@')[-1].split('.')[0] ) != 0:
 			self.unit_struct['metadata'].update({
-				'Requires': [ self.unit_struct['Slice'] ],
-				'After': [ self.unit_struct['Slice'] ]
-				})
+				# systemd.unit(5), description, paragraph 17 (or -4)
+				'iTemplate': [ f'{self.name.split('@')[0]}@.{self.unit_type}' ],
+				# systemd.service(5), default dependencies, bullet 2
+				'iSlice_of': [ f'{self.name.split('@')[0]}.slice' ]
+			})
 
 
 	def record(self) -> Dict[str, List[str]]:

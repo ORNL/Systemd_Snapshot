@@ -1,0 +1,24 @@
+2024-04-29 09:48:40,071 [DEBUG] py4...: Calling get_network_list()
+2024-04-29 09:48:40,072 [DEBUG] py4...: ǀCalling cyrest_get('networks.names', base_url='http://127.0.0.1:1234/v1')
+2024-04-29 09:48:40,072 [DEBUG] py4...: Attempting to direct connect to Cytoscape on http://127.0.0.1:1234/v1
+2024-04-29 09:48:40,073 [DEBUG] py4...: Attempting to connect to remote Cytoscape because of error HTTPConnectionPool(host='127.0.0.1', port=1234): Max retries exceeded with url: /v1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f085d667c90>: Failed to establish a new connection: [Errno 111] Connection refused'))
+2024-04-29 09:48:40,073 [DEBUG] py4...: ǀHTTP GET(http://127.0.0.1:1234/v1)
+2024-04-29 09:48:51,188 [DEBUG] py4...: --------------------
+2024-07-13 20:13:54,594 [DEBUG] py4...: Calling get_network_list()
+2024-07-13 20:13:54,594 [DEBUG] py4...: ǀCalling cyrest_get('networks.names', base_url='http://127.0.0.1:1234/v1')
+2024-07-13 20:13:54,594 [DEBUG] py4...: Attempting to direct connect to Cytoscape on http://127.0.0.1:1234/v1
+2024-07-13 20:13:54,596 [DEBUG] py4...: Attempting to connect to remote Cytoscape because of error HTTPConnectionPool(host='127.0.0.1', port=1234): Max retries exceeded with url: /v1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f2903c10ad0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+2024-07-13 20:13:54,596 [DEBUG] py4...: ǀHTTP GET(http://127.0.0.1:1234/v1)
+2024-07-13 20:13:55,378 [DEBUG] py4...: Error initially contacting Jupyter-bridge: Error posting to Jupyter-bridge: Channel None:request contains unprocessed message
+2024-07-13 20:13:55,379 [DEBUG] py4...: ǀ'cyrest_get' exception RequestException('Cannot find local or remote Cytoscape. Start Cytoscape and then proceed.')
+2024-07-13 20:13:55,380 [DEBUG] py4...: 'get_network_list' exception RequestException('Cannot find local or remote Cytoscape. Start Cytoscape and then proceed.')
+2024-07-13 20:13:55,380 [DEBUG] py4...: --------------------
+2024-07-13 20:14:40,343 [DEBUG] py4...: Calling get_network_list()
+2024-07-13 20:14:40,343 [DEBUG] py4...: ǀCalling cyrest_get('networks.names', base_url='http://127.0.0.1:1234/v1')
+2024-07-13 20:14:40,343 [DEBUG] py4...: Attempting to direct connect to Cytoscape on http://127.0.0.1:1234/v1
+2024-07-13 20:14:40,344 [DEBUG] py4...: Attempting to connect to remote Cytoscape because of error HTTPConnectionPool(host='127.0.0.1', port=1234): Max retries exceeded with url: /v1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7ff09e13fe90>: Failed to establish a new connection: [Errno 111] Connection refused'))
+2024-07-13 20:14:40,345 [DEBUG] py4...: ǀHTTP GET(http://127.0.0.1:1234/v1)
+2024-07-13 20:14:40,833 [DEBUG] py4...: Error initially contacting Jupyter-bridge: Error posting to Jupyter-bridge: Channel None:request contains unprocessed message
+2024-07-13 20:14:40,834 [DEBUG] py4...: ǀ'cyrest_get' exception RequestException('Cannot find local or remote Cytoscape. Start Cytoscape and then proceed.')
+2024-07-13 20:14:40,834 [DEBUG] py4...: 'get_network_list' exception RequestException('Cannot find local or remote Cytoscape. Start Cytoscape and then proceed.')
+2024-07-13 20:14:40,834 [DEBUG] py4...: --------------------

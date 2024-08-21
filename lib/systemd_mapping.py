@@ -34,26 +34,26 @@ import re
 from os import readlink
 from subprocess import run
 from pathlib import Path
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Union
 
 from lib.unit_file_lists import sys_unit_paths, command_directives, ms_only_keys
 from lib.sysd_obj_parser import SystemdFileFactory
 from lib.dep_obj_parser import DepMapUnit
 
-master_struct = {}
-'''holds information about each individual unit file and folder within the
-default systemd system paths'''
 
+def get_bin_path(remote_path: str, cmd_string: str) -> str:
+    '''Find the path to a binary that will be called.'''
 
-def get_bin_path(cmd_string: str) -> str:
-    '''Extracted out of check_binaries to make it usable for dep map.
-    
-    TODO:
-    - Check to see if binary is a path.  If not we need to get the path variables that should be set and
-        try to figure out which one contains the bin we are looking for.'''
+    bin_paths = [ '/bin/', '/sbin/', '/usr/bin/', '/usr/sbin' ]
 
     binary = cmd_string.split()[0]
     binary = remove_prefixes(binary)
+
+    if not Path( binary ).is_file():
+        for bin_path in bin_paths:
+            if Path( f'{remote_path}{bin_path}{binary}' ).is_file():
+                return f'{bin_path}{binary}'
+
     return binary
 
 
@@ -97,7 +97,10 @@ def get_bin_strings(remote_path: str, binary: str) -> Tuple[Set, Set]:
     TODO:
     - Create version check and use check_output for versions older than 3.7'''
     
-    file_ext_list = ['cfg','conf','ini','log','exe']
+    file_ext_list = [ 'cfg','conf','ini','log','exe',
+        'der', 'crt', 'cer', 'pem', 'crl', 'pfx', 'p8', 'p8e', 'pk8', 'p10', 'csr',
+        'p7r', 'p7s', 'p7m', 'p7c', 'p7b', 'keystore', 'p12', 'pkcs12' ]
+    
     file_regex = re.compile( '^.+\.({})$'.format(  '|'.join(file_ext_list) ) )
     path_regex = re.compile('^/\w+(/[\w\.-]*)+$')
     # begin with / followed by at least 1 alphanum char with at least one more / followed by alphanum, '.', or '-' chars any num of times
@@ -112,12 +115,15 @@ def get_bin_strings(remote_path: str, binary: str) -> Tuple[Set, Set]:
     return (files, strings)
 
 
-def check_binaries(remote_path: str, unit_struct: Dict[str, List]) -> Dict[str, Dict[str, Set]]:
+def check_binaries(remote_path: str, master_struct: Dict, unit_struct: Dict[str, List]) -> Dict[str, Dict[str, Set]]:
     '''This function checks for unit file command options and inspects the binaries specified in the 
     command to get a listing of all of the libraries, config and log files, and other potentially 
     interesting filepath strings that are specified in the binary.'''
 
     exec_deps = { 'libraries': {}, 'files': {}, 'strings': {} }
+    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/var/lib/',
+        '/usr/lib/', '/usr/lib32/', '/usr/lib64/', '/usr/libexec/' ]
+    unrecorded_binaries = []
 
     for option in unit_struct:
         if option in command_directives:
@@ -125,7 +131,7 @@ def check_binaries(remote_path: str, unit_struct: Dict[str, List]) -> Dict[str, 
                 if len(cmd) < 1:
                     continue
 
-                binary = get_bin_path(cmd)
+                binary = get_bin_path(remote_path, cmd)
                 
                 if (binary not in master_struct['libraries'] and
                     binary not in exec_deps['libraries']):
@@ -135,10 +141,37 @@ def check_binaries(remote_path: str, unit_struct: Dict[str, List]) -> Dict[str, 
                     exec_deps['files'].update({ binary: bin_files })
                     exec_deps['strings'].update({ binary: bin_strings })
 
+    # Check each binary in the 'libraries' dictionary for library dependencies
+    for binary in exec_deps['libraries']:
+        if len(exec_deps['libraries'][binary]) > 0:
+            unrecorded_binaries.append(binary)
+
+    # Recursively record all encountered library dependencies
+    for binary in unrecorded_binaries:
+        record_library_deps( remote_path, exec_deps['libraries'][binary], lib_paths, exec_deps )
+
     return exec_deps
 
 
-def map_systemd_full(remote_path: str, log: logging) -> dict:
+def record_library_deps( remote_path: str,
+                        lib_list: List[str],
+                        lib_paths: List[str],
+                        lib_deps: Dict[ str, List[str] ] 
+                    ) -> Dict[ str, List[str] ]:
+
+    # Iterate through each library and recursively map out all library dependencies
+    for library in lib_list:
+        if library not in lib_deps:
+            for lib_path in lib_paths:
+                if Path( f'{remote_path}{lib_path}{library}' ).is_file():
+                    new_libs = get_bin_libs( remote_path, f'{lib_path}{library}' )
+                    lib_deps['libraries'].update({ library: new_libs })
+
+                    if len(new_libs) > 0:
+                        record_library_deps( remote_path, new_libs, lib_paths, lib_deps )
+
+
+def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dict:
     '''Map Systemd Full is designed to create a master_struct that will store all unit files on the system 
         regardless of dependencies.  Ideally this will be used in conjunction with the output file option to
         allow users to create a "outfile_master_struct.json" file that can be referenced in the future to map
@@ -261,7 +294,7 @@ dependency_map = {}
 json.  Both "forward" and "backward" relationships will be established and recorded here.'''
 
 
-def map_dependencies(master_struct: Dict, origin_unit: str, log: logging) -> dict:
+def map_dependencies( remote_path: str, master_struct: Dict, origin_unit: str, log: logging) -> dict:
     '''This function uses the information in the master struct to create a dependency list that users can view
     and record to investigate dependencies that are being created when the system is booting up.  The function
     will start with one unit ('default.target') and find all of the dependencies it creates.  Once it is done
@@ -340,7 +373,16 @@ def map_dependencies(master_struct: Dict, origin_unit: str, log: logging) -> dic
         # check for bins so we can add libraries, files, and strings to the unit entry
         commands = new_dep_unit.get_commands()
         for command in commands:
-            binary = get_bin_path(command)
+            # get_bin_path() only works correctly with the remote_path variable if we are constructing
+            # the master struct.  Any other situation (dep map or comparison) requires us to iterate
+            # through the ms, which already has the full file paths listed.
+            if remote_path.split('.')[-1] == 'json':
+                for ms_binary in master_struct['libraries']:
+                    if binary in ms_binary:
+                        binary = ms_binary
+            else:
+                binary = get_bin_path(remote_path, command)
+
             if 'libraries' not in dependency_map[current_unit]:
                 dependency_map[current_unit].update({
                     'binaries': set(),
@@ -373,7 +415,236 @@ def map_dependencies(master_struct: Dict, origin_unit: str, log: logging) -> dic
         log.vdebug( f'unrecorded dependencies: {unrecorded_dependencies}' )
         log.vdebug( f'\n\nnew dependency map: {dependency_map}\n' )
 
-    log.info('Finished recording all dependency relationships')
+    log.info('Finished recording all dependency relationships...')
     log.vdebug( f'\n\n{dependency_map}' )
 
+    log.info( 'Searching for fstab units that will be dynamically created during bootup...' )
+
+    dependency_map['dynamic_mount_points'] = {}
+
+    for entry in master_struct:
+        if ( entry not in ms_only_keys and
+             master_struct[entry]['metadata']['file_type'] == 'fstab_unit' ):
+            
+            unit_name = entry.split('/')[-1]
+            new_dep_unit = DepMapUnit( unit_name, 'None', 'None' )
+            new_dep_unit.load_from_ms( master_struct[entry] )
+            dependency_map.update({ new_dep_unit.name: new_dep_unit.record() })
+
+            # Only fstab units will dynamically mount things, so only these units should
+            # create entries here
+            dependency_map['dynamic_mount_points'].update({
+                unit_name: f"'{master_struct[entry]['Where'][0]}' will be dynamically mounted by '{entry}' as a(n) '{master_struct[entry]['Type'][0]}' filesystem"
+            })
+
+    log.info('Creating nested mount unit dependencies...')
+
+    # Checking for mount file implicit dependencies after all unit file deps have been recorded
+    # This is different from other implicit deps because it is dependant on other unit files
+    for unit_file in dependency_map:
+        # Check to see if this mount file is nested under any other mount units
+        unit_type = unit_file.split('.')[-1]
+        if 'mount' in unit_type:
+            
+            # systemd.mount(5), implicit dependencies, bullet 1
+            # Once we find a mount or automount unit, check to see if it lies beneath another mount unit
+            for comp_unit in dependency_map:
+                comp_unit_type = comp_unit.split('.')[-1]
+
+                if 'mount' in comp_unit_type:
+                    if ( unit_file.split('.')[0] in comp_unit.split('.')[0] and
+                         unit_file != comp_unit ):
+                        
+                        log.debug( f"'{unit_file}' is a mount unit nested under '{comp_unit}'")
+
+                        if 'Requires' in dependency_map[comp_unit]:
+                            dependency_map[comp_unit]['Requires'].append( unit_file )
+                        else:
+                            dependency_map[comp_unit].update({ 'Requires': [unit_file] })
+
+                        if 'After' in dependency_map[comp_unit]:
+                            dependency_map[comp_unit]['After'].append( unit_file )
+                        else:
+                            dependency_map[comp_unit].update({ 'After': [unit_file] })
+
+        ## block device backed file-systems gain BindsTo and After on the corresponding device unit
+
     return dependency_map
+
+
+def compare_lists( origin_file_list: List[str], comp_file_list: List[str] ) -> str:
+
+    unique_to_origin = []
+    unique_to_comp = []
+    ret_entry = None
+
+    for item in origin_file_list:
+        if item not in comp_file_list:
+            unique_to_origin.append(item)
+
+    for item in comp_file_list:
+        if item not in origin_file_list:
+            unique_to_comp.append(item)
+
+    if unique_to_origin != [] and unique_to_comp != []:
+        ret_entry = f'Origin file contains {unique_to_origin}, which comparison file doesn\'t have.\nComparison file contains {unique_to_comp}, which origin file doesn\'t have.'
+    
+    elif unique_to_origin != []:
+        ret_entry = f'Origin file contains {unique_to_origin}, which the comparison file doesn\'t have'
+
+    elif unique_to_comp != []:
+        ret_entry = f'Comparison file contains {unique_to_comp}, which the origin file doesn\'t have'
+
+    return ret_entry
+
+
+
+def compare_map_files( 
+        origin_file,
+        comp_file,
+        log: logging
+        ) -> Dict[ str, Union[ str, Dict[ str, Dict[str, str] ] ] ]:
+    '''This function takes two previously recorded master struct or dependency map files and
+        compares all of the objects in each to find the differences between them. It does this
+        by iterating through each of the files after they have been translated back into their
+        original dictionaries and a line-by-line comparison is performed.  Any differences are
+        recorded in the diff_dict
+
+        Inputs:
+            - origin_file - Either a master struct file or a dependency map file.  This must be
+                the same type of file as the comparison file.
+            - comp_file - Either a master struct file or a dependency map file.  This must be
+                the same type of file as the origin file.
+        
+        Returns:
+            - diff_dict - Dictionary containing all of the differences between the origin_file
+                and the comp_file.
+
+        diff_dict = {
+            'top level key': 'This key was found in the init file but not the comp file!',
+            'top level key2': 'This key was found in the comp file but not the init file!',
+            'top level key3': {
+                'subkey 2': 'This subkey was found in the init file but not the comp file!',
+                'subkey 1': {
+                    'init file has: x': 'comp file has: y',
+                    'init file has: z': 'comp file does not have: z'
+                },
+            }
+        }
+    '''
+
+    diff_dict = {}
+
+    for tlk in origin_file:
+        # All top level key values should be either strings or dicts, and if that is not the case,
+        # we need to create a new check for that type of colleciton
+        if not isinstance(origin_file[tlk], str) and not isinstance(origin_file[tlk], dict):
+            diff_dict.update({ tlk: f'This origin file key has an unusual value type.  Expected either a string or dictionary, and got {type(origin_file[tlk])}' })
+            log.warning( f"The origin file's '{tlk}' key has an unusual value type.  Expected either a string or a dict, and got '{type(origin_file[tlk])}'" )
+            continue
+
+        elif tlk not in comp_file:
+            diff_dict.update({ tlk: 'This key was found in the origin file but not the comparison file' })
+            log.vdebug( f'Origin file entry:\n{origin_file.keys()},\nComparison file entry:\n{comp_file.keys()}' )
+            continue
+
+        elif isinstance(origin_file[tlk], str):
+            if origin_file[tlk] != comp_file[tlk]:
+                diff_dict.update({ tlk: f"Origin file has: '{origin_file[tlk]}', but comparison file has: '{comp_file[tlk]}'" })
+                log.vdebug( f'Origin file entry:\n{origin_file[tlk]},\nComparison file entry:\n{comp_file[tlk]} ')
+            continue
+
+        for subkey in origin_file[tlk]:
+
+            if subkey not in comp_file[tlk]:
+                if tlk not in diff_dict:
+                    diff_dict.update({ tlk: { subkey: 'This subkey was found in the origin file but not the comparison file!' } })
+                else:
+                    diff_dict[tlk].update({ subkey: 'This subkey was found in the origin file but not the comparison file!' })
+
+                log.vdebug( f'Origin file entry:\n{origin_file[tlk]},\nComparison file entry:\n{comp_file[tlk]}' )
+
+                continue
+
+            # Check to see if subkey value is a dict or a list, since lists will always
+            # be at the end of a nest and will always only contain strings.
+            elif isinstance(origin_file[tlk][subkey], list):
+                diff_return = compare_lists( origin_file[tlk][subkey], comp_file[tlk][subkey] )
+                if diff_return != None:
+                    if tlk not in diff_dict:
+                        diff_dict.update({ tlk: { subkey: diff_return } })
+                    else:
+                        diff_dict[tlk].update({ subkey: diff_return })
+            
+            # Only 'metadata' subkeys within the unit files should trigger this
+            elif isinstance(origin_file[tlk][subkey], dict):
+
+                for item in origin_file[tlk][subkey]:
+                    if item not in comp_file[tlk][subkey]:
+                        if tlk not in diff_dict:
+                            diff_dict.update({ tlk: { subkey: { item: 'This subkey was found in the origin file but not the comparison file!' } } })
+                        elif subkey not in diff_dict[tlk]:
+                            diff_dict[tlk].update({ subkey: { item: 'This subkey was found in the origin file but not the comparison file!' } })
+                        else:
+                            diff_dict[tlk][subkey].update({ item: 'This subkey was found in the origin file but not the comparison file!' })
+                            log.vdebug( f'Origin file entry:\n{origin_file[tlk][subkey]},\ncomparison file entry:\n{comp_file[tlk][subkey]}' )
+
+                    elif isinstance(origin_file[tlk][subkey][item], str):
+                        if origin_file[tlk][subkey][item] != comp_file[tlk][subkey][item]:
+                            if tlk not in diff_dict:
+                                diff_dict.update({ tlk: { subkey: { item: f'Origin file has: "{origin_file[tlk][subkey][item]}, but comparison file has: "{comp_file[tlk][subkey][item]}"'} } })
+                            elif subkey not in diff_dict[tlk]:
+                                diff_dict[tlk].update({ subkey: { item: f'Origin file has: "{origin_file[tlk][subkey][item]}, but comparison file has: "{comp_file[tlk][subkey][item]}"' } })
+                            else:
+                                diff_dict[tlk][subkey].update({ item: f'Origin file has: "{origin_file[tlk][subkey][item]}, but comparison file has: "{comp_file[tlk][subkey][item]}"' })
+
+                    elif isinstance(origin_file[tlk][subkey][item], list):
+                        diff_return = compare_lists( origin_file[tlk][subkey][item], comp_file[tlk][subkey][item] )
+
+                        if diff_return != None:
+                            if tlk not in diff_dict:
+                                diff_dict.update({ tlk: { subkey: { item: diff_return } } })
+                            elif subkey not in diff_dict[tlk]:
+                                diff_dict[tlk].update({ subkey: { item: diff_return } })
+                            else:
+                                diff_dict[tlk][subkey].update({ item: diff_return })
+
+        ''' Since we don't want to iterate over the top level keys in the comparison file that we already know are in the origin
+            file, we will check all of the subkeys in the comparison file's corresponding tlk now.  This way we can be sure that
+            all of the comparison file subkeys and items are seen for the tlk's that are also in the origin file.'''
+        for subkey in comp_file[tlk]:
+            if subkey not in origin_file[tlk]:
+                if tlk not in diff_dict:
+                    diff_dict.update({ tlk: { subkey: 'This subkey was found in the comparison file but not the origin file!' } })
+                else:
+                    diff_dict[tlk].update({ subkey: 'This subkey was found in the comparison file but not the origin file!' })
+                log.vdebug( f'Comparison file entry:\n{comp_file[tlk]},\nOrigin file entry:\n{origin_file[tlk]}' )
+
+            elif isinstance(comp_file[tlk][subkey], dict):
+
+                for item in comp_file[tlk][subkey]:
+
+                    # Since we are already doing the comparison of values between the keys/subkeys/items in the origin and comparison
+                    # files, we only want to verify whether or not the key/subkey/item exists in the origin file to avoid duplication.
+
+                    if item not in origin_file[tlk][subkey]:
+                        if tlk not in diff_dict:
+                            diff_dict.update({ tlk: { subkey: { item: f'This subkey was found in the comparison file but not the origin file!' } } })
+                        elif subkey not in diff_dict[tlk]:
+                            diff_dict[tlk].update({ subkey: { item: f'This subkey was found in the comparison file but not the origin file!' } })
+                        else:
+                            diff_dict[tlk][subkey].update({ item: f'This subkey was found in the comparison file but not the origin file!' })
+                        log.vdebug( f'Comparison file entry:\n{comp_file[tlk][subkey]},\nOrigin file entry:\n{origin_file[tlk][subkey]}' )
+
+    # After we iterate through all of the top level keys in the origin file, we want to make sure that
+    # there aren't any top level keys that were in the comparison file that weren't in the origin file
+    for tlk in comp_file:
+        if not isinstance(comp_file[tlk], str) and not isinstance(comp_file[tlk], dict):
+            diff_dict.update({ tlk: f'This comparison file key has an unusual value type.  Expected either a string or a dictionary, and got "{type(comp_file[tlk])}"' })
+            log.warning( f'The comparison file\'s "{tlk}" key has an unusual value type.  Expected either a str or a dict, and got "{type(comp_file[tlk])}"')
+
+        elif tlk not in origin_file:
+            diff_dict.update({ tlk: 'This key was found in the comparison file but not the origin file!' })
+            log.vdebug( f'Comparison file entry:\n{comp_file.keys()},\nOrigin file entry:\n{origin_file.keys()}' )
+
+    return diff_dict

@@ -48,29 +48,29 @@ class MyEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-def load_input_file(user_path: str, log: logging) -> dict:
+def load_input_file(file_path: str, log: logging) -> dict:
     '''Takes a user path as a string, checks to verify it is a file, and then returns the dictionary saved in the file.'''
 
     try:
-        with open(user_path) as user_file:
-            master_struct = load(user_file)
-            log.info( f'Successfully de-serialized file: {user_path}' )
-            log.vdebug( f'Data extracted:\n\n{master_struct}' )
-            return master_struct
+        with open(file_path) as user_file:
+            loaded_struct = load(user_file)
+            log.info( f'Successfully de-serialized file: {file_path}' )
+            log.vdebug( f'Data extracted:\n\n{loaded_struct}' )
+            return loaded_struct
         
     except FileNotFoundError as e:
         log.error( f'{e}\n' )
-        log.error( f'{user_path} is not a valid file, can\'t parse master struct from it. See error message above for more info.' )
+        log.error( f'{file_path} is not a valid file, can\'t parse master struct from it. See error message above for more info.' )
         exit(1)
 
     except JSONDecodeError as e:
         log.error( f'{e}\n' )
-        log.error( f'Could not parse {user_path} properly. Fix file formatting or create a new systemd snapshot.' )
+        log.error( f'Could not parse {file_path} properly. Fix file formatting or create a new systemd snapshot.' )
         exit(1)
 
     except IsADirectoryError as e:
         log.error( f'{e}\n' )
-        log.error( f'Given path "{user_path}" ends with a directory and not a file. Be sure to point to a master struct file if using deps or graph actions.' )
+        log.error( f'Given path "{file_path}" ends with a directory and not a file. Be sure to point to a master struct file if using deps or graph actions.' )
         exit(1)
 
 

@@ -47,7 +47,9 @@ class DepMapUnit:
         'Service':          'uses_service',
         'iTimer_for':       'has_timer',
         'iSocket_of':       'has_socket',
-        'iPath_for':        'needs_path'
+        'iPath_for':        'needs_path',
+        'iTemplate_of':     'uses_template',
+        'iSlice_of':        'uses_slice'
     }
     '''Map of all reverse dependencies. If you are going to add a new rev dep make sure to create the 
     corresponding key in sysd_obj_parser.py so it can be seen in the master struct. Things to keep in mind 
@@ -66,6 +68,7 @@ class DepMapUnit:
 
     # DO NOT MODIFY THE CASE FOR THESE STRINGS. This is required to verify proper options in unit files.
     dep_creating_dirs = ['Wants', 'Requires']
+
 
     def __init__(self, unit_file: str, parent_unit_path: str, rev_dep: str) -> None:
         '''The DepMapUnit class creates the dep object shell for dep map units and uses the
@@ -86,6 +89,7 @@ class DepMapUnit:
         self.reverse_deps: Set[str] = set()
         self.dependencies: Set[str] = set()
         self.commands: Set[str] = set()
+        self.where: Set[str] = set()
 
         self.set_rev_dep()
 
@@ -154,7 +158,8 @@ class DepMapUnit:
             self.update_ms_dep_dir(master_struct_unit)
         elif master_struct_unit['metadata']['file_type'] == 'sym_link':
             self.update_ms_sym_link(master_struct_unit)
-        elif master_struct_unit['metadata']['file_type'] == 'unit_file':
+        elif ( master_struct_unit['metadata']['file_type'] == 'unit_file' or
+               master_struct_unit['metadata']['file_type'] == 'fstab_unit' ):
             self.update_ms_unit_file(master_struct_unit)
         else:
             logging.warning(f'Not sure how to parse file type: {master_struct_unit["metadata"]["file_type"]} from {self.unit_name}')
@@ -187,13 +192,14 @@ class DepMapUnit:
         for option in ms_unit_struct:
             try:
                 getattr(self, option.lower()).update(ms_unit_struct[option])
-                self.dependencies.update(ms_unit_struct[option])
+                if option != 'Where':
+                    self.dependencies.update(ms_unit_struct[option])
             except AttributeError:
                 # If current key is metadata, send it back into the func as a new dictionary to parse implicit dependencies
                 if option == 'metadata':
                     self.update_ms_unit_file(ms_unit_struct['metadata'])
                 elif option == 'file_type':
-                    pass
+                    return
                 else:
                     logging.debug(f'No set in the dep_to_attr_map matches {option} (from {ms_unit_struct[option]})')
 
@@ -214,7 +220,7 @@ class DepMapUnit:
                 getattr(self, dep.lower()).update(dep_map_unit[dep])
 
             except AttributeError:
-                if dep not in ('unit_name', 'binaries', 'libraries', 'files', 'strings'):
+                if dep not in ('name', 'binaries', 'libraries', 'files', 'strings', 'mount_points'):
                     logging.warning(f'Could not load "{dep}" attribute from unit already in dep map. Investigate {self.unit_name} in the master struct')
 
 

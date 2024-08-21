@@ -60,7 +60,7 @@ from argparse   import ArgumentParser, RawDescriptionHelpFormatter
 from os         import getcwd
 from pathlib    import Path
 
-from lib.systemd_mapping    import map_systemd_full, map_dependencies
+from lib.systemd_mapping    import map_systemd_full, map_dependencies, compare_map_files
 from lib.file_handlers      import create_output_file, load_input_file
 
 # JMC: for graphing capability in Cytoscape.
@@ -119,14 +119,16 @@ systemd_snapshot.py -a deps -p /path/to/snapshot_ms.json        - use specified 
 systemd_snapshot.py -a graph -p /path/to/snapshot_ms.json       - use specified master struct snapshot to build only the graph
 systemd_snapshot.py -a all -p /remotely/hosted/fs/root          - create ms snapshot from remote fs and build dep map and graph from it
 systemd_snapshot.py -a all -p /remote/fs -o new/snaps           - create ms snapshot from remote fs, build dep map and graph from master struct,
-                                                                  and save all files as new/snaps_*''')
+                                                                  and save all files as new/snaps_*
+systemd_snapshot.py -a diff -p snap1_ms.json -c snap2_ms.json   - compare the differences between snap1 and snap2. Both files need to be the same type.
+                                                                  If you try to compare a master struct file to a dependency map file you will get an error.''')
     parser.add_argument(
         '-a',
         '--action',
         type=str,
         dest='action',
         default='all',
-        help='''Action to take. One of {'master', 'deps', 'graph', 'all'}.  If action is 'master' or 'all', path option will be used as a pointer to a remotely 
+        help='''Action to take. One of {'master', 'deps', 'graph', 'diff', 'all'}.  If action is 'master' or 'all', path option will be used as a pointer to a remotely 
         hosted fs. Otherwise, the path option will be used as a pointer to a master struct snapshot file.''')
 
     parser.add_argument(
@@ -163,6 +165,14 @@ systemd_snapshot.py -a all -p /remote/fs -o new/snaps           - create ms snap
         help='Use -t followed by a unit name to start the dependency map from the specified unit file instead of default.target')
 
     parser.add_argument(
+        '-c',
+        '--comparison-file',
+        type=str,
+        dest='comp_file',
+        default=None,
+        help='Required if the action to take is "diff".  Use -c followed by a filename in order to set a comparison file.')
+    
+    parser.add_argument(
         '-l',
         '--log-level',
         type=str,
@@ -193,6 +203,7 @@ systemd_snapshot.py -a all -p /remote/fs -o new/snaps           - create ms snap
     log = init_logger(__name__, args.log_level)
     action = args.action.lower()
     origin_unit = args.origin_unit.lower()
+    comp_file_path = args.comp_file
 
     if args.user_path == Path('/'):
         user_path = ''
@@ -208,13 +219,13 @@ systemd_snapshot.py -a all -p /remote/fs -o new/snaps           - create ms snap
 
     if action in ('master', 'all'):
         # if master or all is the chosen action, user_path will be passed as the remote_path
-        master_struct = map_systemd_full(user_path, log)
+        master_struct = map_systemd_full(user_path, {}, log)
         create_output_file(master_struct, 'ms', output_file, args.overwrite, log)
 
     elif action not in ('master', 'all') and user_path == '':
         # if no path to a ms file is given, no remote_path is used which parses the locally hosted system
-        log.info( f'No path given. Parsing systemd to build a master struct' )
-        master_struct = map_systemd_full(user_path, log)
+        log.info( f'No path given. Parsing local systemd system to build a master struct' )
+        master_struct = map_systemd_full(user_path, {}, log)
         create_output_file(master_struct, 'ms', output_file, args.overwrite, log)
 
     else:
@@ -222,7 +233,7 @@ systemd_snapshot.py -a all -p /remote/fs -o new/snaps           - create ms snap
         master_struct = load_input_file(user_path, log)
 
     if action in ('dep', 'deps', 'all'):
-        dependency_map = map_dependencies(master_struct, origin_unit, log)
+        dependency_map = map_dependencies(user_path, master_struct, origin_unit, log)
         create_output_file(dependency_map, 'dm', output_file, args.overwrite, log)
 
     if action in ('graph', 'all'):
@@ -267,6 +278,23 @@ systemd_snapshot.py -a all -p /remote/fs -o new/snaps           - create ms snap
                 # the user has provided a style name.
                 gstyle = Style( args.style_file, log )
                 gstyle.activate()
+
+    if action in ('compare', 'diff'):
+
+        if user_path == '' or comp_file_path == None:
+            log.error( 'Please specify an origin file with -p and a comparison file with -c in order to do a comparison.' )
+            return
+
+        initial_file = load_input_file( user_path, log )
+        comp_file = load_input_file( comp_file_path, log )
+
+        if ( 'remote_path' in initial_file ) ^ ( 'remote_path' in comp_file ):
+            log.error('These appear to be two different types of files.\r\nPlease compare the same types of files (eg. two master struct files or two dependency map files)')
+            return
+
+        # if a change has been made in either of the comparison items, record necessary changes.
+        diff_dict = compare_map_files( initial_file, comp_file, log )
+        create_output_file( diff_dict, 'df', output_file, args.overwrite, log )
 
 if __name__ == '__main__':
     main()
