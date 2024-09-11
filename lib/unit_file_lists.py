@@ -859,6 +859,7 @@ command_directives = [
 
 ms_only_keys = [
     'remote_path',
+    'binaries',
     'libraries',
     'files',
     'strings'

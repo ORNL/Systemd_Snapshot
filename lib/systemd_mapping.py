@@ -30,8 +30,8 @@ Description:  This is the main logic for the tool that searches for which files 
 
 import logging
 import re
+import pdb
 
-from os import readlink
 from subprocess import run
 from pathlib import Path
 from typing import List, Dict, Set, Tuple, Union
@@ -120,9 +120,10 @@ def check_binaries(remote_path: str, master_struct: Dict, unit_struct: Dict[str,
     command to get a listing of all of the libraries, config and log files, and other potentially 
     interesting filepath strings that are specified in the binary.'''
 
-    exec_deps = { 'libraries': {}, 'files': {}, 'strings': {} }
-    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/var/lib/',
-        '/usr/lib/', '/usr/lib32/', '/usr/lib64/', '/usr/libexec/' ]
+    exec_deps = { 'binaries': {}, 'libraries': {}, 'files': {}, 'strings': {} }
+    ## Should I incorporate an OS-based find command instead of listing out paths?
+    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/var/lib/', '/usr/lib/systemd/',
+        '/usr/lib/', '/usr/lib/x86_64-linux-gnu/', '/usr/lib32/', '/usr/lib64/', '/usr/libexec/' ]
     unrecorded_binaries = []
 
     for option in unit_struct:
@@ -133,22 +134,22 @@ def check_binaries(remote_path: str, master_struct: Dict, unit_struct: Dict[str,
 
                 binary = get_bin_path(remote_path, cmd)
                 
-                if (binary not in master_struct['libraries'] and
-                    binary not in exec_deps['libraries']):
+                if (binary not in master_struct['binaries'] and
+                    binary not in exec_deps['binaries']):
 
-                    exec_deps['libraries'].update({ binary: get_bin_libs(remote_path, binary) })
+                    exec_deps['binaries'].update({ binary: get_bin_libs(remote_path, binary) })
                     bin_files, bin_strings = get_bin_strings(remote_path, binary)
                     exec_deps['files'].update({ binary: bin_files })
                     exec_deps['strings'].update({ binary: bin_strings })
 
-    # Check each binary in the 'libraries' dictionary for library dependencies
-    for binary in exec_deps['libraries']:
-        if len(exec_deps['libraries'][binary]) > 0:
+    # Check each binary in the 'binaries' dictionary for library dependencies
+    for binary in exec_deps['binaries']:
+        if len(exec_deps['binaries'][binary]) > 0:
             unrecorded_binaries.append(binary)
 
     # Recursively record all encountered library dependencies
     for binary in unrecorded_binaries:
-        record_library_deps( remote_path, exec_deps['libraries'][binary], lib_paths, exec_deps )
+        record_library_deps( remote_path, exec_deps['binaries'][binary], lib_paths, exec_deps )
 
     return exec_deps
 
@@ -161,7 +162,7 @@ def record_library_deps( remote_path: str,
 
     # Iterate through each library and recursively map out all library dependencies
     for library in lib_list:
-        if library not in lib_deps:
+        if library not in lib_deps['libraries']:
             for lib_path in lib_paths:
                 if Path( f'{remote_path}{lib_path}{library}' ).is_file():
                     new_libs = get_bin_libs( remote_path, f'{lib_path}{library}' )
@@ -234,6 +235,7 @@ def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dic
     log.info('Beginning recording of all files in Systemd folders.')
     master_struct.update({
         'remote_path': remote_path,
+        'binaries': {},
         'libraries': {},
         'files': {},
         'strings': {}
@@ -243,7 +245,7 @@ def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dic
 
     # Prevent duplicate dir traversal if /lib is sym linked to /usr/lib
     try:
-        if readlink( f'{remote_path}/lib' ) == f'usr/lib':
+        if Path( f'{remote_path}/lib' ).readlink() == f'usr/lib':
             sys_unit_paths.remove('/lib/systemd/system/')
     except OSError:
         log.debug('/lib is not sym linked to /usr/lib.  Retaining /lib/systemd/system system path.')
@@ -271,7 +273,7 @@ def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dic
 
                 log.debug( f'Checking for binaries, libraries, and files required by {unit_file_fp}' )
 
-                bin_requirements = check_binaries(remote_path, unit_file)
+                bin_requirements = check_binaries(remote_path, master_struct, unit_file)
                 for requirement_type in bin_requirements:
                     # requirement_type is referencing either the libraries, files, or strings dict
 
@@ -286,15 +288,74 @@ def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dic
     log.info( f'Finished recording all Systemd unit files into Master Structure' )
     log.vdebug( f'\n\n{master_struct}' )
 
+    fstab = parse_fstab()
+
+    for unit in fstab:
+        if unit not in master_struct:
+            master_struct.update({ unit: fstab[unit] })
+
     return master_struct
 
+
+def parse_fstab():
+    ## Move this function to sysd_obj_parser.py
+    fstab = {}
+    #rchar = '\\x2d'
+
+    for line in open('/etc/fstab', 'r').readlines():
+        if '#' not in line[0]:
+            line = line.split()
+            fstab.update({
+                f'/run/systemd/generator/{mount_path_to_unit_name( line[0], line[1], line[2] )}': {
+                    'metadata': { 'unit_type': 'fstab_unit' },
+                    'Description':      'This is a unit file that will be dynamically created by systemd-fstab-generator',
+                    'Documentation':    'man:fstab(5) man:systemd-fstab-generator(8)',
+                    'SourcePath':       '/etc/fstab',
+                    #'Before':           'local-fs.target',
+                    #'After':            f"systemd-fsck@dev-disk-by\\x2duuid-{line[0].split('=')[-1].replace('-', rchar)}",
+                    'Where':            line[1],
+                    'What':             resolve_device_entry( line[0] ),
+                    'Type':             line[2],
+                    'Options':          line[3]
+                }
+            })
+
+    return fstab
+
+
+def resolve_device_entry( entry: str ) -> str:
+
+    if 'UUID' in entry:
+        return f'/dev/disk/by-uuid{entry.split("=")[-1]}'
+
+    return entry
+
+
+def mount_path_to_unit_name( device_name: str, mount_path: str, fs_type: str ) -> str:
+
+    mount_path = mount_path.lstrip('/')
+
+    if len(mount_path) == 0:
+        return '-.mount'
+    elif fs_type == 'swap':
+        if 'UUID' in device_name.upper():
+            return f'dev-disk-by\\x2duuid-{device_to_unit_name(device_name)}.swap'
+        else:
+            return f"{device_name.lstrip('/').replace('/', '-')}.swap"
+    else:
+        return f"{mount_path.lstrip('/').replace('/', '-')}.mount"
+
+
+def device_to_unit_name( file_path: str ) -> str:
+
+    return file_path.split('=')[-1].replace('-', '\\x2d')
 
 dependency_map = {}
 '''dictionary that will hold all of the dependency relationships for a given master_struct
 json.  Both "forward" and "backward" relationships will be established and recorded here.'''
 
 
-def map_dependencies( remote_path: str, master_struct: Dict, origin_unit: str, log: logging) -> dict:
+def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> dict:
     '''This function uses the information in the master struct to create a dependency list that users can view
     and record to investigate dependencies that are being created when the system is booting up.  The function
     will start with one unit ('default.target') and find all of the dependencies it creates.  Once it is done
@@ -370,20 +431,13 @@ def map_dependencies( remote_path: str, master_struct: Dict, origin_unit: str, l
         dependency_map.update({ new_dep_unit.unit_name: new_dep_unit.record() })
         new_dep_tups.extend( new_dep_unit.create_dep_tups(current_unit) )
 
+        ##def update_binary_metadata( new_dep_unit: DepMapUnit ) -> DepMapUnit:
         # check for bins so we can add libraries, files, and strings to the unit entry
         commands = new_dep_unit.get_commands()
         for command in commands:
-            # get_bin_path() only works correctly with the remote_path variable if we are constructing
-            # the master struct.  Any other situation (dep map or comparison) requires us to iterate
-            # through the ms, which already has the full file paths listed.
-            if remote_path.split('.')[-1] == 'json':
-                for ms_binary in master_struct['libraries']:
-                    if binary in ms_binary:
-                        binary = ms_binary
-            else:
-                binary = get_bin_path(remote_path, command)
+            binary = get_bin_path(master_struct['remote_path'], command)
 
-            if 'libraries' not in dependency_map[current_unit]:
+            if 'binaries' not in dependency_map[current_unit]:
                 dependency_map[current_unit].update({
                     'binaries': set(),
                     'libraries': set(),
@@ -391,21 +445,26 @@ def map_dependencies( remote_path: str, master_struct: Dict, origin_unit: str, l
                     'strings': set()
                     })
             dependency_map[current_unit]['binaries'].update({ binary })
-            dependency_map[current_unit]['libraries'].update( master_struct['libraries'][binary] )
+            find_lib_deps( master_struct['binaries'][binary], master_struct['libraries'], dependency_map[current_unit]['libraries'] )
             dependency_map[current_unit]['files'].update( master_struct['files'][binary] )
             dependency_map[current_unit]['strings'].update( master_struct['strings'][binary] )
+        ##return new_dep_unit
 
         log.debug( f'info recorded for {new_dep_unit.unit_name}:' )
         log.vdebug( f'{new_dep_unit.record()}\n' )
 
+        ##def update_dep_tups( new_dep_tups: List[Tuple], recorded_dependencies: List[Tuple], unrecorded_dependencies: List[Tuple] ) -> List[Tuple]:
+        ##    new_dependencies = []
         for tups in new_dep_tups:
             if tups[2] == 'sym_linked_from' and '/' not in tups[1]:
                 log.debug( f'discarding {tups} because it is a sym link duplicate.' )
             elif tups in recorded_dependencies or tups in unrecorded_dependencies:
-                log.debug( f'skipping recording dep tup: {tups}' )
+                log.debug( f'skipping recording dep tup ({tups}) because it is already recorded or tracked' )
             else:
                 log.debug( f'adding {tups} to unrecorded dependencies' )
                 unrecorded_dependencies.append(tups)
+                ##new_dependencies.append(tups)
+        ##return new_dependencies
 
         # Clean up and prepare for next iteration
         new_dep_tups = []
@@ -420,6 +479,7 @@ def map_dependencies( remote_path: str, master_struct: Dict, origin_unit: str, l
 
     log.info( 'Searching for fstab units that will be dynamically created during bootup...' )
 
+    ##def 
     dependency_map['dynamic_mount_points'] = {}
 
     for entry in master_struct:
@@ -439,6 +499,7 @@ def map_dependencies( remote_path: str, master_struct: Dict, origin_unit: str, l
 
     log.info('Creating nested mount unit dependencies...')
 
+    ## break into a function
     # Checking for mount file implicit dependencies after all unit file deps have been recorded
     # This is different from other implicit deps because it is dependant on other unit files
     for unit_file in dependency_map:
@@ -470,6 +531,15 @@ def map_dependencies( remote_path: str, master_struct: Dict, origin_unit: str, l
         ## block device backed file-systems gain BindsTo and After on the corresponding device unit
 
     return dependency_map
+
+
+def find_lib_deps( search_libs: List, libraries_dict: Dict[str, List[str]], dep_map_entry_libs: Set[str] ) -> None:
+    '''Take a list of libraries and recursively find all library dependencies. Passing dep_map_entry_libs by ref so updating as we go'''
+
+    for lib in search_libs:
+        if lib not in dep_map_entry_libs:
+            dep_map_entry_libs.add( lib )
+            find_lib_deps( libraries_dict[lib], libraries_dict, dep_map_entry_libs )
 
 
 def compare_lists( origin_file_list: List[str], comp_file_list: List[str] ) -> str:
@@ -515,6 +585,7 @@ def compare_map_files(
                 the same type of file as the comparison file.
             - comp_file - Either a master struct file or a dependency map file.  This must be
                 the same type of file as the origin file.
+            - log - A reference to our logging instance so that we can use logging
         
         Returns:
             - diff_dict - Dictionary containing all of the differences between the origin_file

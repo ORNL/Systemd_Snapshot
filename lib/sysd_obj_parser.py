@@ -27,7 +27,7 @@ or the README.md.
 import logging
 
 from pathlib import Path
-from os import readlink, getcwd, chdir, path
+from os import chdir
 from typing import Any, Dict, List, Union
 
 from lib.unit_file_lists import possible_unit_opts, space_delim_opts
@@ -64,11 +64,11 @@ def parse_fstab( fstab_path: str, master_struct: Dict, log: logging) -> Dict[ st
 				],
 				'Description':	['This unit file will be dynamically generated when systemd parses the fstab file when booting up'],
 				'SourcePath':	['/etc/fstab'],
-				'What':			[f'/dev/disk/by-label/{entry[0].split('=')[-1]}'],
+				'What':			[f'/dev/disk/by-label/{entry[0].split("=")[-1]}'],
 				'Where':		[f'{entry[1]}'],
 				'Type':			[f'{entry[2]}'],
 				'Before':		['local-fs.target'],
-				'After':		[f'blockdev@dev-disk-by\\x2dlabel-{entry[0].split('=')[-1]}.target']
+				'After':		[f'blockdev@dev-disk-by\\x2dlabel-{entry[0].split("=")[-1]}.target']
 			}
 
 			# All options other than 'defaults' create an options key
@@ -279,7 +279,7 @@ class SymLink:
 			self.name = unit_name
 			self.path = path
 
-			self.target_unit: str = readlink(sl_full_path).split('/')[-1]
+			self.target_unit: str = str( Path(sl_full_path).readlink() ).split('/')[-1]
 			self.target_path: str = self.get_target_path(sl_full_path)
 
 		else:
@@ -294,21 +294,24 @@ class SymLink:
 		the system path the sym link WOULD resolve to if the system were booting up, and the remote path 
 		will be dropped if it is present.'''
 
-		sl_ret_path = Path( readlink(sl_full_path) )
+		sl_target_path = Path( sl_full_path ).readlink()
 
-		if not sl_ret_path.is_absolute():
-				current_dir = getcwd()
-				chdir( Path(sl_full_path).parent )
-				absolute_path = path.abspath(sl_ret_path)
-				sl_ret_path = Path(absolute_path)
-				chdir(current_dir)
+		# Path.absolute() is wonky if we aren't in the same dir as the symlink
+		if not sl_target_path.is_absolute():
+			current_dir = Path.cwd()
+			chdir( Path(sl_full_path).parent )
+			# Only try to chdir if symlink is pointing to a file in another dir
+			if len( str(sl_target_path).split('/') ) > 1:
+				chdir( sl_target_path.parent )
+			sl_target_path = Path.cwd()
+			chdir(current_dir)
+	
+		if self.remote_path != '' and self.remote_path in str(sl_target_path):
+			sl_target_path = str(sl_target_path.parent).split(self.remote_path)[-1]
 
-		if self.remote_path != '' and self.remote_path in str(sl_ret_path):
-				sl_ret_path = str(sl_ret_path.parent).split(self.remote_path)[-1]
+		sl_target_path = str(sl_target_path).split( f'/{self.target_unit}' )[0]
 
-		sl_ret_path = str(sl_ret_path).split( f'/{self.target_unit}' )[0]
-
-		return f'{sl_ret_path}/'
+		return f'{sl_target_path}/'
 
 
 	def record(self) -> Dict[str, Any]:
@@ -367,33 +370,37 @@ class UnitFile:
 		Opens the specified unit file and parses it line by line. If an '=' is encountered on any of the lines it considers this 
 		an option line, and will check the option and it's associated arguments to make sure they are valid before recording.'''
 
-		with open( f'{remote_path}{path}{unit_file}', 'r' ) as in_file:
-			for line in in_file:
+		try:
+			with open( f'{remote_path}{path}{unit_file}', 'r' ) as in_file:
+				for line in in_file:
 
-				if '=' in line and '#' != line[0]:
+					if '=' in line and '#' != line[0]:
 
-					''' Some unit files have newline escapes '\\' for exec start opts.  This combines them
-						until no more newline escapes '\\' are encountered at the end of the command/line.
-						Otherwise, the newlines won't be recorded as arguments for that option and we will 
-						lose part of the commands. '''
-					
-					if line[-2] == '\\':
-						extra_line_marker = True
-						while extra_line_marker == True:
-							line = line.rstrip('\\\n') + in_file.readline()
-							if line[-2] != '\\':
-								extra_line_marker = False
+						''' Some unit files have newline escapes '\\' for exec start opts.  This combines them
+							until no more newline escapes '\\' are encountered at the end of the command/line.
+							Otherwise, the newlines won't be recorded as arguments for that option and we will 
+							lose part of the commands. '''
+						
+						if line[-2] == '\\':
+							extra_line_marker = True
+							while extra_line_marker == True:
+								line = line.rstrip('\\\n') + in_file.readline()
+								if line[-2] != '\\':
+									extra_line_marker = False
 
-					line_option = line.rstrip('\n').split('=')[0]
-					arguments = '='.join( line.rstrip('\n').split('=')[1:] )
+						line_option = line.rstrip('\n').split('=')[0]
+						arguments = '='.join( line.rstrip('\n').split('=')[1:] )
 
-					self.option = self.check_option(line_option)
-					self.arguments = self.format_arguments(line_option, arguments)
+						self.option = self.check_option(line_option)
+						self.arguments = self.format_arguments(line_option, arguments)
 
-					if self.option in self.unit_struct:
-						self.unit_struct[self.option].extend(self.arguments)
-					else:
-						self.unit_struct.update({ self.option: self.arguments })
+						if self.option in self.unit_struct:
+							self.unit_struct[self.option].extend(self.arguments)
+						else:
+							self.unit_struct.update({ self.option: self.arguments })
+		
+		except PermissionError as e:
+			logging.warning( e )
 
 
 	def check_option(self, line_option: str) -> None:
@@ -456,7 +463,7 @@ class UnitFile:
 		# systemd.socket(5), automatic dependencies, implicit dependencies
 		if unit_type == 'socket' and 'BindToDevice' in self.unit_struct:
 			if 'BindsTo' in self.unit_struct['metadata']:
-				self.unit_struct['metadata']['BindsTo'].extend( [ f'{self.unit_struct['BindToDevice']}' ] )
+				self.unit_struct['metadata']['BindsTo'].extend( [ f'{self.unit_struct["BindToDevice"]}' ] )
 			else:
 				self.unit_struct['metadata'].update({ 'BindsTo': [ self.unit_struct['BindToDevice'] ] })
 			
@@ -485,7 +492,7 @@ class UnitFile:
 			elif isinstance(self.unit_struct['Sockets'], list):
 				socket_unit_list = self.unit_struct['Sockets']
 			else:
-				print( f'Socket unit list is expected to be a string or a list, but got {type(self.unit_struct['Sockets'])}' )
+				print( f'Socket unit list is expected to be a string or a list, but got {type(self.unit_struct["Sockets"])}' )
 
 			if 'Wants' in self.unit_struct['metadata']:
 				self.unit_struct['metadata']['Wants'].extend( socket_unit_list )
@@ -540,9 +547,9 @@ class UnitFile:
 		if '@' in self.name and len( self.name.split('@')[-1].split('.')[0] ) != 0:
 			self.unit_struct['metadata'].update({
 				# systemd.unit(5), description, paragraph 17 (or -4)
-				'iTemplate': [ f'{self.name.split('@')[0]}@.{self.unit_type}' ],
+				'iTemplate': [ f'{self.name.split("@")[0]}@.{self.unit_type}' ],
 				# systemd.service(5), default dependencies, bullet 2
-				'iSlice_of': [ f'{self.name.split('@')[0]}.slice' ]
+				'iSlice_of': [ f'{self.name.split("@")[0]}.slice' ]
 			})
 
 

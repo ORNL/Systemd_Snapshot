@@ -220,7 +220,7 @@ class DepMapUnit:
                 getattr(self, dep.lower()).update(dep_map_unit[dep])
 
             except AttributeError:
-                if dep not in ('name', 'binaries', 'libraries', 'files', 'strings', 'mount_points'):
+                if dep not in ('unit_name', 'binaries', 'libraries', 'files', 'strings', 'mount_points'):
                     logging.warning(f'Could not load "{dep}" attribute from unit already in dep map. Investigate {self.unit_name} in the master struct')
 
 

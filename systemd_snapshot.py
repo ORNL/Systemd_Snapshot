@@ -57,7 +57,6 @@ Description: This tool creates a systemd snapshot of either locally or remotely 
 import logging
 
 from argparse   import ArgumentParser, RawDescriptionHelpFormatter
-from os         import getcwd
 from pathlib    import Path
 
 from lib.systemd_mapping    import map_systemd_full, map_dependencies, compare_map_files
@@ -136,7 +135,7 @@ systemd_snapshot.py -a diff -p snap1_ms.json -c snap2_ms.json   - compare the di
         '--output-file',
         type=str,
         dest='output_file',
-        default=f'{getcwd()}/data/snapshot',
+        default=f'{Path.cwd()}/data/snapshot',
         help='File path to save master struct as. All artifacts will be created in the same directory. (Default: working-directory/snapshot)')
 
     parser.add_argument(
@@ -233,7 +232,7 @@ systemd_snapshot.py -a diff -p snap1_ms.json -c snap2_ms.json   - compare the di
         master_struct = load_input_file(user_path, log)
 
     if action in ('dep', 'deps', 'all'):
-        dependency_map = map_dependencies(user_path, master_struct, origin_unit, log)
+        dependency_map = map_dependencies(master_struct, origin_unit, log)
         create_output_file(dependency_map, 'dm', output_file, args.overwrite, log)
 
     if action in ('graph', 'all'):
