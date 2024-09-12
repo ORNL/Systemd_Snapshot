@@ -27,9 +27,7 @@ Description:  This file is designed to instantiate the DepMapUnit objects and
 import logging
 
 from typing import Dict, List, Set, Tuple, Any, Union
-
-from lib.unit_file_lists import command_directives
-
+from lib import unit_file_lists
 
 
 class DepMapUnit:
@@ -203,7 +201,7 @@ class DepMapUnit:
                 else:
                     logging.debug(f'No set in the dep_to_attr_map matches {option} (from {ms_unit_struct[option]})')
 
-            if option in command_directives:
+            if option in unit_file_lists.command_directives:
                 if len(ms_unit_struct[option]) < 1:
                     continue
 

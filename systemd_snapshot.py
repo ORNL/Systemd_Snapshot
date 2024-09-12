@@ -55,6 +55,7 @@ Description: This tool creates a systemd snapshot of either locally or remotely 
 '''
 
 import logging
+import pdb
 
 from argparse   import ArgumentParser, RawDescriptionHelpFormatter
 from pathlib    import Path
@@ -218,13 +219,13 @@ systemd_snapshot.py -a diff -p snap1_ms.json -c snap2_ms.json   - compare the di
 
     if action in ('master', 'all'):
         # if master or all is the chosen action, user_path will be passed as the remote_path
-        master_struct = map_systemd_full(user_path, {}, log)
+        master_struct = map_systemd_full({'remote_path': user_path}, log)
         create_output_file(master_struct, 'ms', output_file, args.overwrite, log)
 
     elif action not in ('master', 'all') and user_path == '':
         # if no path to a ms file is given, no remote_path is used which parses the locally hosted system
         log.info( f'No path given. Parsing local systemd system to build a master struct' )
-        master_struct = map_systemd_full(user_path, {}, log)
+        master_struct = map_systemd_full({'remote_path': user_path}, log)
         create_output_file(master_struct, 'ms', output_file, args.overwrite, log)
 
     else:

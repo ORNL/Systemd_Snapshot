@@ -36,9 +36,7 @@ from subprocess import run
 from pathlib import Path
 from typing import List, Dict, Set, Tuple, Union
 
-from lib.unit_file_lists import sys_unit_paths, command_directives, ms_only_keys
-from lib.sysd_obj_parser import SystemdFileFactory
-from lib.dep_obj_parser import DepMapUnit
+from lib import unit_file_lists, sysd_obj_parser, dep_obj_parser
 
 
 def get_bin_path(remote_path: str, cmd_string: str) -> str:
@@ -127,7 +125,7 @@ def check_binaries(remote_path: str, master_struct: Dict, unit_struct: Dict[str,
     unrecorded_binaries = []
 
     for option in unit_struct:
-        if option in command_directives:
+        if option in unit_file_lists.command_directives:
             for cmd in unit_struct[option]:
                 if len(cmd) < 1:
                     continue
@@ -172,7 +170,7 @@ def record_library_deps( remote_path: str,
                         record_library_deps( remote_path, new_libs, lib_paths, lib_deps )
 
 
-def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dict:
+def map_systemd_full(master_struct: Dict, log: logging) -> dict:
     '''Map Systemd Full is designed to create a master_struct that will store all unit files on the system 
         regardless of dependencies.  Ideally this will be used in conjunction with the output file option to
         allow users to create a "outfile_master_struct.json" file that can be referenced in the future to map
@@ -233,31 +231,25 @@ def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dic
     '''
 
     log.info('Beginning recording of all files in Systemd folders.')
-    master_struct.update({
-        'remote_path': remote_path,
-        'binaries': {},
-        'libraries': {},
-        'files': {},
-        'strings': {}
-        })
+    remote_path = master_struct['remote_path']
+    master_struct.update( create_skeletor('dict') )
 
-    UnitFactory = SystemdFileFactory(remote_path)
+    UnitFactory = sysd_obj_parser.SystemdFileFactory(remote_path)
 
     # Prevent duplicate dir traversal if /lib is sym linked to /usr/lib
     try:
         if Path( f'{remote_path}/lib' ).readlink() == f'usr/lib':
-            sys_unit_paths.remove('/lib/systemd/system/')
+            unit_file_lists.sys_unit_paths.remove('/lib/systemd/system/')
     except OSError:
         log.debug('/lib is not sym linked to /usr/lib.  Retaining /lib/systemd/system system path.')
 
-    for sys_path in sys_unit_paths:
+    for sys_path in unit_file_lists.sys_unit_paths:
         check_path = Path( f'{remote_path}{sys_path}' )
 
         if check_path.exists():
             for unit_file_fp in [files for files in check_path.glob('**/*')]:
 
                 log.debug( f'Sending {unit_file_fp} for processing' )
-
                 current_unit = str(unit_file_fp).split('/')[-1]
                 unit_path = str(unit_file_fp.parents[0]) + '/'
 
@@ -268,19 +260,15 @@ def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dic
                 # Reset unit file info
                 unit_file = None
                 unit_file = UnitFactory.parse_file(unit_path, current_unit)
-
                 log.debug( f'Finished recording {unit_file_fp}' )
-
                 log.debug( f'Checking for binaries, libraries, and files required by {unit_file_fp}' )
 
                 bin_requirements = check_binaries(remote_path, master_struct, unit_file)
                 for requirement_type in bin_requirements:
-                    # requirement_type is referencing either the libraries, files, or strings dict
-
+                    # requirement_type is referencing either the binaries, libraries, files, or strings dict
                     for binary in bin_requirements[requirement_type]:
                         # binary is referencing the bin dicts w/in the Lib, File, or String dicts
                         master_struct[requirement_type].update({ binary: bin_requirements[requirement_type][binary] })
-
                 log.debug( f'Finished getting binaries, libraries, and files required by {unit_file_fp}' )
 
                 master_struct.update({ f'{unit_path}{current_unit}': unit_file })
@@ -288,67 +276,13 @@ def map_systemd_full(remote_path: str, master_struct: Dict, log: logging) -> dic
     log.info( f'Finished recording all Systemd unit files into Master Structure' )
     log.vdebug( f'\n\n{master_struct}' )
 
-    fstab = parse_fstab()
+    fstab = sysd_obj_parser.parse_fstab()
 
     for unit in fstab:
         if unit not in master_struct:
             master_struct.update({ unit: fstab[unit] })
 
     return master_struct
-
-
-def parse_fstab():
-    ## Move this function to sysd_obj_parser.py
-    fstab = {}
-    #rchar = '\\x2d'
-
-    for line in open('/etc/fstab', 'r').readlines():
-        if '#' not in line[0]:
-            line = line.split()
-            fstab.update({
-                f'/run/systemd/generator/{mount_path_to_unit_name( line[0], line[1], line[2] )}': {
-                    'metadata': { 'unit_type': 'fstab_unit' },
-                    'Description':      'This is a unit file that will be dynamically created by systemd-fstab-generator',
-                    'Documentation':    'man:fstab(5) man:systemd-fstab-generator(8)',
-                    'SourcePath':       '/etc/fstab',
-                    #'Before':           'local-fs.target',
-                    #'After':            f"systemd-fsck@dev-disk-by\\x2duuid-{line[0].split('=')[-1].replace('-', rchar)}",
-                    'Where':            line[1],
-                    'What':             resolve_device_entry( line[0] ),
-                    'Type':             line[2],
-                    'Options':          line[3]
-                }
-            })
-
-    return fstab
-
-
-def resolve_device_entry( entry: str ) -> str:
-
-    if 'UUID' in entry:
-        return f'/dev/disk/by-uuid{entry.split("=")[-1]}'
-
-    return entry
-
-
-def mount_path_to_unit_name( device_name: str, mount_path: str, fs_type: str ) -> str:
-
-    mount_path = mount_path.lstrip('/')
-
-    if len(mount_path) == 0:
-        return '-.mount'
-    elif fs_type == 'swap':
-        if 'UUID' in device_name.upper():
-            return f'dev-disk-by\\x2duuid-{device_to_unit_name(device_name)}.swap'
-        else:
-            return f"{device_name.lstrip('/').replace('/', '-')}.swap"
-    else:
-        return f"{mount_path.lstrip('/').replace('/', '-')}.mount"
-
-
-def device_to_unit_name( file_path: str ) -> str:
-
-    return file_path.split('=')[-1].replace('-', '\\x2d')
 
 dependency_map = {}
 '''dictionary that will hold all of the dependency relationships for a given master_struct
@@ -404,7 +338,7 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
     while len(unrecorded_dependencies) > 0:
 
         current_unit, parent_unit_path, dep_type = unrecorded_dependencies[0]
-        new_dep_unit = DepMapUnit(current_unit, parent_unit_path, dep_type)
+        new_dep_unit = dep_obj_parser.DepMapUnit(current_unit, parent_unit_path, dep_type)
 
         log.debug( f'searching master struct for {current_unit} to satisfy {unrecorded_dependencies[0]}' )
 
@@ -414,8 +348,8 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
                 new_dep_unit.load_from_dep_map( dependency_map[current_unit] )
                 break
 
-            # skip parsing non-unit file keys. This list is located in unit file lists
-            if sysd_obj_key in ms_only_keys:
+            # skip parsing non-unit file keys
+            if sysd_obj_key in unit_file_lists.ms_only_keys:
                 continue
 
             # Dep dir names will trigger false positives on all units contained in the dir unless we only look
@@ -431,45 +365,12 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
         dependency_map.update({ new_dep_unit.unit_name: new_dep_unit.record() })
         new_dep_tups.extend( new_dep_unit.create_dep_tups(current_unit) )
 
-        ##def update_binary_metadata( new_dep_unit: DepMapUnit ) -> DepMapUnit:
-        # check for bins so we can add libraries, files, and strings to the unit entry
-        commands = new_dep_unit.get_commands()
-        for command in commands:
-            binary = get_bin_path(master_struct['remote_path'], command)
-
-            if 'binaries' not in dependency_map[current_unit]:
-                dependency_map[current_unit].update({
-                    'binaries': set(),
-                    'libraries': set(),
-                    'files': set(),
-                    'strings': set()
-                    })
-            dependency_map[current_unit]['binaries'].update({ binary })
-            find_lib_deps( master_struct['binaries'][binary], master_struct['libraries'], dependency_map[current_unit]['libraries'] )
-            dependency_map[current_unit]['files'].update( master_struct['files'][binary] )
-            dependency_map[current_unit]['strings'].update( master_struct['strings'][binary] )
-        ##return new_dep_unit
-
+        record_binary_metadata( new_dep_unit, master_struct, dependency_map )
         log.debug( f'info recorded for {new_dep_unit.unit_name}:' )
         log.vdebug( f'{new_dep_unit.record()}\n' )
 
-        ##def update_dep_tups( new_dep_tups: List[Tuple], recorded_dependencies: List[Tuple], unrecorded_dependencies: List[Tuple] ) -> List[Tuple]:
-        ##    new_dependencies = []
-        for tups in new_dep_tups:
-            if tups[2] == 'sym_linked_from' and '/' not in tups[1]:
-                log.debug( f'discarding {tups} because it is a sym link duplicate.' )
-            elif tups in recorded_dependencies or tups in unrecorded_dependencies:
-                log.debug( f'skipping recording dep tup ({tups}) because it is already recorded or tracked' )
-            else:
-                log.debug( f'adding {tups} to unrecorded dependencies' )
-                unrecorded_dependencies.append(tups)
-                ##new_dependencies.append(tups)
-        ##return new_dependencies
-
-        # Clean up and prepare for next iteration
-        new_dep_tups = []
+        record_dep_tups(new_dep_tups, recorded_dependencies, unrecorded_dependencies)
         recorded_dependencies.append(unrecorded_dependencies.pop(0))
-
         log.vdebug( f'\nrecorded dependencies: {recorded_dependencies}' )
         log.vdebug( f'unrecorded dependencies: {unrecorded_dependencies}' )
         log.vdebug( f'\n\nnew dependency map: {dependency_map}\n' )
@@ -478,30 +379,87 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
     log.vdebug( f'\n\n{dependency_map}' )
 
     log.info( 'Searching for fstab units that will be dynamically created during bootup...' )
-
-    ##def 
-    dependency_map['dynamic_mount_points'] = {}
-
-    for entry in master_struct:
-        if ( entry not in ms_only_keys and
-             master_struct[entry]['metadata']['file_type'] == 'fstab_unit' ):
-            
-            unit_name = entry.split('/')[-1]
-            new_dep_unit = DepMapUnit( unit_name, 'None', 'None' )
-            new_dep_unit.load_from_ms( master_struct[entry] )
-            dependency_map.update({ new_dep_unit.name: new_dep_unit.record() })
-
-            # Only fstab units will dynamically mount things, so only these units should
-            # create entries here
-            dependency_map['dynamic_mount_points'].update({
-                unit_name: f"'{master_struct[entry]['Where'][0]}' will be dynamically mounted by '{entry}' as a(n) '{master_struct[entry]['Type'][0]}' filesystem"
-            })
+    dependency_map['dynamic_mount_points'] = record_fstab_units( dependency_map, master_struct )
 
     log.info('Creating nested mount unit dependencies...')
+    record_nested_mounts( dependency_map )
 
-    ## break into a function
-    # Checking for mount file implicit dependencies after all unit file deps have been recorded
-    # This is different from other implicit deps because it is dependant on other unit files
+    return dependency_map
+
+
+def record_binary_metadata( new_dep_unit: 'DepMapUnit', master_struct, dependency_map ) -> None:
+    # check for bins so we can add libraries, files, and strings to the unit entry
+    commands = new_dep_unit.get_commands()
+    unit = new_dep_unit.unit_name
+    for command in commands:
+        binary = get_bin_path(master_struct['remote_path'], command)
+
+        if 'binaries' not in dependency_map[unit]:
+            dependency_map[unit].update( create_skeletor('set') )
+        dependency_map[unit]['binaries'].update({ binary })
+        find_lib_deps( master_struct['binaries'][binary], master_struct['libraries'], dependency_map[unit]['libraries'] )
+        dependency_map[unit]['files'].update( master_struct['files'][binary] )
+        dependency_map[unit]['strings'].update( master_struct['strings'][binary] )
+
+
+def create_skeletor( collection: str ) -> Dict[str, Set]:
+    '''Helper function to create a standard set of dictionary entries'''
+
+    if collection.lower() == 'dict':
+        skeleton = {
+            'binaries': {},
+            'libraries': {},
+            'files': {},
+            'strings': {}
+        }
+    
+    elif collection.lower() == 'set':
+        skeleton = {
+            'binaries': set(),
+            'libraries': set(),
+            'files': set(),
+            'strings': set()
+        }
+
+    elif collection.lower() == 'list':
+        skeleton = {
+            'binaries': [],
+            'libraries': [],
+            'files': [],
+            'strings': []
+        }
+
+    return skeleton
+
+
+def record_dep_tups( new_dep_tups: List[Tuple], recorded_dependencies: List[Tuple], unrecorded_dependencies: List[Tuple] ) -> List[Tuple]:
+    new_dependencies = []
+
+    for tups in new_dep_tups:
+        if tups[2] == 'sym_linked_from' and '/' not in tups[1]:
+            logging.debug( f'discarding {tups} because it is a sym link duplicate.' )
+        elif tups in recorded_dependencies or tups in unrecorded_dependencies:
+            logging.debug( f'skipping recording dep tup ({tups}) because it is already recorded or tracked' )
+        else:
+            logging.debug( f'adding {tups} to unrecorded dependencies' )
+            unrecorded_dependencies.append(tups)
+        new_dependencies.append(tups)
+
+
+def find_lib_deps( search_libs: List, libraries_dict: Dict[str, List[str]], dep_map_entry_libs: Set[str] ) -> None:
+    '''Take a list of libraries and recursively find all library dependencies. Passing dep_map_entry_libs by ref so updating as we go'''
+
+    for lib in search_libs:
+        if lib not in dep_map_entry_libs:
+            dep_map_entry_libs.add( lib )
+            find_lib_deps( libraries_dict[lib], libraries_dict, dep_map_entry_libs )
+
+
+def record_nested_mounts( dependency_map: Dict[str, Dict[str, Union[str, List[str]] ] ] ) -> None:
+    '''Checking for mount file implicit dependencies after all unit file deps have been recorded
+        This is different from other implicit deps because it is dependant on all other unit files
+        being loaded.'''
+
     for unit_file in dependency_map:
         # Check to see if this mount file is nested under any other mount units
         unit_type = unit_file.split('.')[-1]
@@ -516,7 +474,7 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
                     if ( unit_file.split('.')[0] in comp_unit.split('.')[0] and
                          unit_file != comp_unit ):
                         
-                        log.debug( f"'{unit_file}' is a mount unit nested under '{comp_unit}'")
+                        logging.debug( f"'{unit_file}' is a mount unit nested under '{comp_unit}'")
 
                         if 'Requires' in dependency_map[comp_unit]:
                             dependency_map[comp_unit]['Requires'].append( unit_file )
@@ -530,16 +488,27 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
 
         ## block device backed file-systems gain BindsTo and After on the corresponding device unit
 
-    return dependency_map
 
+def record_fstab_units( dependency_map, master_struct ) -> None:
+    dynamic_mount_points = {}
 
-def find_lib_deps( search_libs: List, libraries_dict: Dict[str, List[str]], dep_map_entry_libs: Set[str] ) -> None:
-    '''Take a list of libraries and recursively find all library dependencies. Passing dep_map_entry_libs by ref so updating as we go'''
+    for entry in master_struct:
+        if ( entry not in unit_file_lists.ms_only_keys and
+             master_struct[entry]['metadata']['file_type'] == 'fstab_unit' ):
+            
+            unit_name = entry.split('/')[-1]
+            new_dep_unit = dep_obj_parser.DepMapUnit( unit_name, 'None', 'None' )
+            new_dep_unit.load_from_ms( master_struct[entry] )
+            # Create an actual unit file entry and record it to dep map while we have the obj
+            dependency_map.update({ new_dep_unit.name: new_dep_unit.record() })
 
-    for lib in search_libs:
-        if lib not in dep_map_entry_libs:
-            dep_map_entry_libs.add( lib )
-            find_lib_deps( libraries_dict[lib], libraries_dict, dep_map_entry_libs )
+            # Only fstab units will dynamically mount things, so only these units should
+            # create entries here
+            dynamic_mount_points.update({
+                unit_name: f"'{master_struct[entry]['Where'][0]}' will be dynamically mounted by '{entry}' as a(n) '{master_struct[entry]['Type'][0]}' filesystem"
+            })
+
+    return dynamic_mount_points
 
 
 def compare_lists( origin_file_list: List[str], comp_file_list: List[str] ) -> str:

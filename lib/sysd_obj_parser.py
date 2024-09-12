@@ -33,59 +33,54 @@ from typing import Any, Dict, List, Union
 from lib.unit_file_lists import possible_unit_opts, space_delim_opts
 
 
-def parse_fstab( fstab_path: str, master_struct: Dict, log: logging) -> Dict[ str, Union[ Dict[ str, str ], List[str] ] ]:
-	'''Parse a filesystem table file to emulate the unit files that will be created dynamically
-		by systemd when a system boots up.'''
-	
-	fstab = Path( fstab_path ).read_text()
-	relevant_lines = []
+def parse_fstab() -> Dict[ str, Dict[str, Union[ Dict[str, str], str ]] ]:
+    fstab = {}
 
-	for line in fstab.split('\n'):
-		if len(line) != 0 and '#' not in line[0]:
-			relevant_lines.append(line.split())
+    for line in open('/etc/fstab', 'r').readlines():
+        if '#' not in line[0]:
+            line = line.split()
+            fstab.update({
+                f'/run/systemd/generator/{mount_path_to_unit_name( line[0], line[1], line[2] )}': {
+                    'metadata': { 'unit_type': 'fstab_unit' },
+                    'Description':      'This is a unit file that will be dynamically created by systemd-fstab-generator',
+                    'Documentation':    'man:fstab(5) man:systemd-fstab-generator(8)',
+                    'SourcePath':       '/etc/fstab',
+                    'Where':            line[1],
+                    'What':             resolve_device_entry( line[0] ),
+                    'Type':             line[2],
+                    'Options':          line[3]
+                }
+            })
 
-	# Translate the mount path in fstab into a unit file name
-	for entry in relevant_lines:
-		if entry[1] == '/':
-			name = '-'
-		else:
-			name = '-'.join( entry[1].split('/')[1:] )
+    return fstab
 
-		# Check to see if the unit file has already been recorded somehow
-		## use regex here to consolidate
-		if f'{name}.mount' not in master_struct and f'{name}.automount' not in master_struct:
-			temp_unit = {
-				'metadata': {
-					'file_type': 'fstab_unit'
-				},
-				'Documentation': [
-					"man:fstab(5)",
-					"man:systemd-fstab-generator(8)"
-				],
-				'Description':	['This unit file will be dynamically generated when systemd parses the fstab file when booting up'],
-				'SourcePath':	['/etc/fstab'],
-				'What':			[f'/dev/disk/by-label/{entry[0].split("=")[-1]}'],
-				'Where':		[f'{entry[1]}'],
-				'Type':			[f'{entry[2]}'],
-				'Before':		['local-fs.target'],
-				'After':		[f'blockdev@dev-disk-by\\x2dlabel-{entry[0].split("=")[-1]}.target']
-			}
 
-			# All options other than 'defaults' create an options key
-			if entry[3] != 'defaults':
-				temp_unit['Options'] = [ entry[3] ]
+def resolve_device_entry( entry: str ) -> str:
 
-			# Check to see if the mount is supposed to be a remote filesystem
-			try:
-				if len( entry[0].split('/')[2].split('.') ) == 4:
-					temp_unit['Before'] = ['remote-fs.target']
-			
-			except IndexError as e:
-				log.debug( f'Got "{e}" when checking for a remote file path in fstab.' )
+    if 'UUID' in entry:
+        return f'/dev/disk/by-uuid{entry.split("=")[-1]}'
 
-		master_struct.update({ f'/run/systemd/generator/{name}.mount': temp_unit })
+    return entry
 
-	return master_struct
+
+def mount_path_to_unit_name( device_name: str, mount_path: str, fs_type: str ) -> str:
+
+    mount_path = mount_path.lstrip('/')
+
+    if len(mount_path) == 0:
+        return '-.mount'
+    elif fs_type == 'swap':
+        if 'UUID' in device_name.upper():
+            return f'dev-disk-by\\x2duuid-{device_to_unit_name(device_name)}.swap'
+        else:
+            return f"{device_name.lstrip('/').replace('/', '-')}.swap"
+    else:
+        return f"{mount_path.lstrip('/').replace('/', '-')}.mount"
+
+
+def device_to_unit_name( file_path: str ) -> str:
+
+    return file_path.split('=')[-1].replace('-', '\\x2d')
 
 
 
