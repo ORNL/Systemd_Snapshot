@@ -1,4 +1,4 @@
-'''
+"""
 systemd_mapping.py
 Authors: Mike Huettel, Jason M. Carter
 Date: December 2023
@@ -26,7 +26,7 @@ Description:  This is the main logic for the tool that searches for which files 
     unit file ('default.target' by default) and searches through the master struct to find any and all 
     dependencies that are created by that unit. It does this dependency mapping for each dependency that 
     is created unitl none remain.  For more information, including struct mappings, see doc strings.
-'''
+"""
 
 import logging
 import re
@@ -40,8 +40,19 @@ from lib import unit_file_lists, sysd_obj_parser, dep_obj_parser
 
 
 def get_bin_path(remote_path: str, cmd_string: str) -> str:
-    '''Find the path to a binary that will be called.'''
-
+    """Return the path to a binary that will be called by a unit file 'Exec' command.
+    
+    Args:
+        remote_path - String specifying the root directory of a remote filesystem to
+            parse. Used as the root directory from which to start searches for binaries.
+        cmd_string - An 'Exec' command string from a unit file.
+        
+    Returns:
+        binary - String containing the full path to a binary that is referenced
+            by a command string in a unit file. The path will start from the
+            root directory of the target filesystem and will not include the
+            remote_path.
+    """
     bin_paths = [ '/bin/', '/sbin/', '/usr/bin/', '/usr/sbin' ]
 
     binary = cmd_string.split()[0]
@@ -56,10 +67,19 @@ def get_bin_path(remote_path: str, cmd_string: str) -> str:
 
 
 def remove_prefixes(binary: str) -> str:
-    '''This function removes all of the prefixes from a command directive option's corresponding argument. 
-        "@", "-", ":", and one of "+"/"!"/"!!"  may be used together and they can appear in any order. However, 
-        only one of "+", "!", "!!" may be used at a time. For more info see systemd.service (5) man page.'''
+    """Return an 'Exec' command with all Systemd command prefixes removed.
     
+    This function removes all of the prefixes from a command directive option's
+    corresponding argument. "@", "-", ":", and one of "+"/"!"/"!!"  may be used
+    together and they can appear in any order. However, only one of "+", "!", "!!"
+    may be used at a time. For more info see systemd.service (5) man page.
+    
+    Args:
+        binary - path to a binary that is referenced in a unit file command line
+        
+    Returns:
+        binary - path to a binary with all of the systemd prefixes removed
+    """
     cmd_prefixes = ( '@', '-', ':', '+', '!' )
 
     i = 0
@@ -67,20 +87,31 @@ def remove_prefixes(binary: str) -> str:
         if binary[i] in cmd_prefixes:
             i += 1
         else:
-            # If we reach the end of the cmd_prefixes exit the loop
+            # break when we hit the beginning of the actual command
             break
     
     return binary[i:]
 
 
 def get_bin_libs(remote_path: str, binary: str) -> Set:
-    '''Use objdump to enumerate the given binary and return  that are required by it. This function 
-    is ONLY meant to be used when building the master struct.  If this function is used outside of the 
-    machine being snapshot, it WILL either return nothing or return false info based on the machine being used.
+    """Return any libraries an executable requires.
     
-    TODO:
-    - Create version check and use check_output for versions older than 3.7'''
+    Use objdump to enumerate the given binary and return  that are required by it.
+    This function is ONLY meant to be used when building the master struct.  If this
+    function is used outside of the machine being snapshot, it WILL either return
+    nothing or return false info based on the machine being used.
+    
+    Args:
+        remote_path - String that specifies the root directory of a remote
+            filesystem to parse.
+        binary - abs path to a binary starting from the remote root directory
 
+    Returns:
+        set containing all of the libraries that are required by a binary
+        
+    TODO:
+    - Create version check and use check_output for versions older than 3.7
+    """
     lib_regex = re.compile('\s*NEEDED\s+(.+)')
 
     output = run( ['objdump', '-p', f'{remote_path}{binary}' ], capture_output=True, text=True )
@@ -88,20 +119,32 @@ def get_bin_libs(remote_path: str, binary: str) -> Set:
 
 
 def get_bin_strings(remote_path: str, binary: str) -> Tuple[Set, Set]:
-    '''Use strings to enumerate the given binary and return paths and files that are referenced. This function 
-    is ONLY meant to be used when building the master struct.  If this function is used outside of the 
-    machine being snapshot, it WILL either return nothing or return false info based on the machine being used.
+    """Return any interesting filenames or strings found in a binary.
     
+    Use strings to enumerate the given binary and return paths and files that are
+    referenced. This function is ONLY meant to be used when building the master struct.
+    If this function is used outside of the machine being snapshot, it WILL either return
+    nothing or return false info based on the machine being used.
+    
+    Args:
+        remote_path - String that specifies the root directory of a remote
+            filesystem to parse.
+        binary - abs path to a binary starting from the remote root directory
+
+    Returns:
+        set containing interesting file and string references in a binary
+
     TODO:
-    - Create version check and use check_output for versions older than 3.7'''
-    
+    - Create version check and use check_output for versions older than 3.7
+    """
     file_ext_list = [ 'cfg','conf','ini','log','exe',
         'der', 'crt', 'cer', 'pem', 'crl', 'pfx', 'p8', 'p8e', 'pk8', 'p10', 'csr',
         'p7r', 'p7s', 'p7m', 'p7c', 'p7b', 'keystore', 'p12', 'pkcs12' ]
     
     file_regex = re.compile( '^.+\.({})$'.format(  '|'.join(file_ext_list) ) )
     path_regex = re.compile('^/\w+(/[\w\.-]*)+$')
-    # begin with / followed by at least 1 alphanum char with at least one more / followed by alphanum, '.', or '-' chars any num of times
+    # begin with / followed by at least 1 alphanum char with at least
+    # one more / followed by alphanum, '.', or '-' chars any num of times
 
     output = run( [ 'strings', f'{remote_path}{binary}' ], capture_output=True, text=True )
     files = { file.split('=')[-1] for file in filter( file_regex.match, output.stdout.split() ) }
@@ -113,15 +156,30 @@ def get_bin_strings(remote_path: str, binary: str) -> Tuple[Set, Set]:
     return (files, strings)
 
 
-def check_binaries(remote_path: str, master_struct: Dict, unit_struct: Dict[str, List]) -> Dict[str, Dict[str, Set]]:
-    '''This function checks for unit file command options and inspects the binaries specified in the 
-    command to get a listing of all of the libraries, config and log files, and other potentially 
-    interesting filepath strings that are specified in the binary.'''
-
+def check_binaries(
+        remote_path: str,
+        master_struct: Dict,
+        unit_struct: Dict[str, List]
+    ) -> Dict[str, Dict[str, Set]]:
+    """Return a dictionary containing forensic metadata about a binary.
+    
+    Check for unit file command options and inspect the binaries specified in the 
+    command to get a listing of all of the libraries, config and log files, and other
+    potentially interesting filepath strings that are specified in the binary.
+    
+    Args:
+        remote_path - String that specifies the root directory of a remote
+            filesystem to parse.
+        master_struct - A reference to the master structure that contains all of the unit
+            files that were found on a systemd system, including the binaries, libraries,
+            files, and strings that were found on the system.
+        unit_struct - a single unit file entry that will be parsed for any command
+            directive options.
+    """
     exec_deps = { 'binaries': {}, 'libraries': {}, 'files': {}, 'strings': {} }
-    ## Should I incorporate an OS-based find command instead of listing out paths?
-    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/var/lib/', '/usr/lib/systemd/',
-        '/usr/lib/', '/usr/lib/x86_64-linux-gnu/', '/usr/lib32/', '/usr/lib64/', '/usr/libexec/' ]
+    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/var/lib/',
+                '/usr/lib/systemd/', '/usr/lib/', '/usr/lib/x86_64-linux-gnu/',
+                '/usr/lib32/', '/usr/lib64/', '/usr/libexec/' ]
     unrecorded_binaries = []
 
     for option in unit_struct:
@@ -156,9 +214,22 @@ def record_library_deps( remote_path: str,
                         lib_list: List[str],
                         lib_paths: List[str],
                         lib_deps: Dict[ str, List[str] ] 
-                    ) -> Dict[ str, List[str] ]:
-
-    # Iterate through each library and recursively map out all library dependencies
+                    ) -> None:
+    """Add all library dependencies to the dependency map.
+    
+    Iterate through each library and recursively add library dependencies. During the
+    first call, lib_list will be the value of a single 'binaries' key in the master_struct.
+    During any recursive call, lib_list will contain libraries required for the previous
+    iteration's library.
+    
+    Args:
+        remote_path - String that specifies the root directory of a remote filesystem
+            to parse.
+        lib_list - List of libraries that will be iterated through to find all library
+            dependencies.
+        lib_paths - Various paths to check for libraries
+        lib_deps - A reference to the calling function's executable dependency dictionary.
+    """
     for library in lib_list:
         if library not in lib_deps['libraries']:
             for lib_path in lib_paths:
@@ -171,45 +242,50 @@ def record_library_deps( remote_path: str,
 
 
 def map_systemd_full(master_struct: Dict, log: logging) -> dict:
-    '''Map Systemd Full is designed to create a master_struct that will store all unit files on the system 
-        regardless of dependencies.  Ideally this will be used in conjunction with the output file option to
-        allow users to create a "outfile_master_struct.json" file that can be referenced in the future to map
-        dependencies without having to create a new master_struct every time.  
-        
-        The function iterates through all of the default systemd system paths, and checks to see if each one is
-        present.  If the system path is present, all files and dependency folders will be established
-        independently as a SystemdFile object, and then, depending on the file type, will be parsed as a
-        dependency directory, symbolic link, or unit file.
-        
-        If a unit file has command directives that will run an binary upon getting started, we will record 
-        additional info on the binary in the libraries and files dictionaries. These are maps from the 
-        binaries found in the unit file command directives to libraries and files that the binary requires. 
-        These are recorded independently of the unit file entries to avoid duplication.
-        
-        Lastly, the function will update the master_struct with the parsed info.  The final product should follow 
-        the format detailed below:
+    """Parse a filesystem and record all Systemd unit files.
+    
+    Map Systemd Full is designed to create a master_struct that will store all
+    unit files on the system regardless of dependencies.  Ideally this will be used
+    in conjunction with the output file option to allow users to create a
+    "outfile_master_struct.json" file that can be referenced in the future to map
+    dependencies without having to create a new master_struct every time.  
+    
+    The function iterates through all of the default systemd system paths, and
+    checks to see if each one is present.  If the system path is present, all files
+    and dependency folders will be established independently as a SystemdFile object,
+    and then, depending on the file type, will be parsed as a dependency directory,
+    symbolic link, or unit file.
+    
+    If a unit file has command directives that will run an binary upon getting started,
+    we will record additional info on the binary in the libraries and files dictionaries.
+    These are maps from the binaries found in the unit file command directives to
+    libraries and files that the binary requires. These are recorded independently of the
+    unit file entries to avoid duplication.
+    
+    Lastly, the function will update the master_struct with the parsed info.  The final
+    product should follow the format detailed below:
 
     master_struct = {
         'remote_path': '/some/remote/file/system/root/dir',
         'libraries': {
             '/usr/bin/exe1':    ['lib1', 'lib2', 'lib3'],
             '/bin/exe2':        ['lib3', 'lib4']
-            },
+        },
         'files': {
             '/usr/bin/exe1':    ['file.config'],
             '/bin/exe2':        ['file.ini', 'file.log']
-            },
+        },
         'strings': {
             '/bin/exe2':        ['/var/log/exe2/']
-            },
+        },
         'wants folder example' : {
             'metadata': {
                 'file_type' : 'dep_dir',
                 'dependency_folder_paths' : ['/sys/path/to/dep/dir'],
                 'dependencies' : ['unitA', 'unitB', 'unitC'],
                 'Wants' : [ 'Wants', 'field', 'Units' ]
-                }
-            },
+            }
+        },
         'symbolic link example' : {
             'metadata' : {
                 'file_type': 'sym_link',
@@ -218,18 +294,24 @@ def map_systemd_full(master_struct: Dict, log: logging) -> dict:
                 'sym_link_target_path' : target_path,
                 'sym_link_target_unit' : target_unit,
                 'dependencies' : target_unit
-                }
-            },
+            }
+        },
         'unit file example' : {
             'metadata' : {
                 'file_type': 'unit_file'
                 },
             unit_file_option : option_arguments,
             ...
-            }
         }
-    '''
-
+    }
+    
+    Args:
+        master_struct - Empty at this point, but will be a reference to the master
+            structure that contains all of the unit files that were found on a systemd
+            system, including the binaries, libraries, files, and strings that were
+            found on the system.
+        log - a logging instance for logging functionality
+    """
     log.info('Beginning recording of all files in Systemd folders.')
     remote_path = master_struct['remote_path']
     master_struct.update( create_skeletor('dict') )
@@ -285,29 +367,33 @@ def map_systemd_full(master_struct: Dict, log: logging) -> dict:
     return master_struct
 
 dependency_map = {}
-'''dictionary that will hold all of the dependency relationships for a given master_struct
-json.  Both "forward" and "backward" relationships will be established and recorded here.'''
+"""Hold all dependency relationships described by a master_struct."""
 
 
 def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> dict:
-    '''This function uses the information in the master struct to create a dependency list that users can view
-    and record to investigate dependencies that are being created when the system is booting up.  The function
-    will start with one unit ('default.target') and find all of the dependencies it creates.  Once it is done
-    recording the dependencies for a unit, it checks to see if there are any dependencies that have not yet
-    been recorded, and then records any that are missing one at a time.  Dependency tuples are created upon
-    each iteration in order to maintain a backwards mapping of dependencies (e.g. what created the deps).  This
-    is very useful when investigating the startup processes of something failing to boot properly.
+    """Record all "forward" and "backward" dependency relationships in a Systemd filesystem.
     
-    To record the unit files, the function unpacks a dependency tuple and uses it to create a DepMapUnit object.
-    Once this object is created, any entries in the master struct that are associated with that unit file will
-    be parsed and recorded.  If the master struct entry is a sym link entry, the dependency tuples will be
-    created immediately after being parsed and deduplicated in order to maintain the full path to the sym link.
-    Otherwise, all of the master struct entries, as well as previous dep map entires, that are associated with
-    the unit file in question will be parsed, deduplicated, and then recorded to the dependency map.  Lastly,
-    once everything is recorded the function will use the entry to create unique dependency tuples if needed.
+    This function uses the information in the master struct to create a dependency list that users
+    can view and record to investigate dependencies that are being created when the system is
+    booting up.  The function will start with one unit ('default.target') and find all of the 
+    dependencies it creates.  Once it is done recording the dependencies for a unit, it checks to
+    see if there are any dependencies that have not yet been recorded, and then records any that are
+    missing one at a time. Dependency tuples are created upon each iteration in order to maintain a
+    backwards mapping of dependencies (e.g. what created the deps). This is very useful when
+    investigating the startup processes of something failing to boot properly.
+    
+    To record the unit files, the function unpacks a dependency tuple and uses it to create a
+    DepMapUnit object. Once this object is created, any entries in the master struct that are
+    associated with that unit file will be parsed and recorded.  If the master struct entry is a sym
+    link entry, the dependency tuples will be created immediately after being parsed and deduplicated
+    in order to maintain the full path to the sym link. Otherwise, all of the master struct entries,
+    as well as previous dep map entires, that are associated with the unit file in question will be
+    parsed, deduplicated, and then recorded to the dependency map.  Lastly, once everything is recorded
+    the function will use the entry to create unique dependency tuples if needed.
 
-    Unit files and their dependencies will have following structure.  Note that the first unit pointed to will
-    not have any parents or reverse dependency mappings because no dependency tuples have been created for it:
+    Unit files and their dependencies will have following structure.  Note that the first unit pointed
+    to will not have any parents or reverse dependency mappings because no dependency tuples have been
+    created for it:
 
     dependency_map = {
         'first.unit' : {
@@ -325,8 +411,19 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
             'dependencies' : [...]
             }
         }
-    '''
 
+    Args:
+        master_struct - Dictionary that holds all of the information gathered
+            from parsing a system. All map_dependencies() operations will use
+            the information contained within this dictionary.
+        origin_unit - Unit file to start creating the dependency map from. This
+            must be a valid unit inside of the master_struct.
+        log - Logging instance for logging functionality.
+
+    Returns:
+        dependency_map - Dictionary containing all of the dependencies that
+            will be created when a systemd system starts up.
+    """
     log.info('Starting the dependency relationship mapping...')
     log.vdebug( f'Searching for dependency relationships in:\n\n{master_struct}' )
 
@@ -388,7 +485,23 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
 
 
 def record_binary_metadata( new_dep_unit: 'DepMapUnit', master_struct, dependency_map ) -> None:
-    # check for bins so we can add libraries, files, and strings to the unit entry
+    """Record metadata from binary dependencies created from the master_struct.
+    
+    Check for commands that are specified in a single unit file. Once commands are found,
+    check the master structure for any binaries that are referenced in those commands. Once
+    the binaries are found, recursively find all libraries, files, and strings that are
+    referenced by the binary in the master structure.
+    
+    Args:
+        new_dep_unit - A single instance of a DepMapUnit object.  Each iteration of the
+            map_dependencies main loop will pass in a different DepMapUnit object.
+        master_struct - A reference to the master structure that contains all of the unit
+            files that were found on a systemd system, including the binaries, libraries,
+            files, and strings that were found on the system.
+        dependency_map - A reference to the dependency map which contains all of the
+            dependency mappings between all of the unit files in the master structure.
+            Only unit files that are scheduled to run on startup will be recorded.
+    """
     commands = new_dep_unit.get_commands()
     unit = new_dep_unit.unit_name
     for command in commands:
@@ -403,8 +516,7 @@ def record_binary_metadata( new_dep_unit: 'DepMapUnit', master_struct, dependenc
 
 
 def create_skeletor( collection: str ) -> Dict[str, Set]:
-    '''Helper function to create a standard set of dictionary entries'''
-
+    """Create a standardized set of dictionary entries for various functions."""
     if collection.lower() == 'dict':
         skeleton = {
             'binaries': {},
@@ -432,23 +544,56 @@ def create_skeletor( collection: str ) -> Dict[str, Set]:
     return skeleton
 
 
-def record_dep_tups( new_dep_tups: List[Tuple], recorded_dependencies: List[Tuple], unrecorded_dependencies: List[Tuple] ) -> List[Tuple]:
+def record_dep_tups(
+        new_dep_tups: List[Tuple],
+        recorded_dependencies: List[Tuple],
+        unrecorded_dependencies: List[Tuple]
+        ) -> List[Tuple]:
+    """Add unique dependency tuples that have been found to the dependency map.
+    
+    Iterate through a list of dependency tuples to update the unrecorded dependencies with any unique
+    dependency tuples that have been gained from the last iteration of the dependency map main loop.
+    
+    Args:
+        new_dep_tups - A list of dependency tuples containing various required dependency data.
+        recorded_dependencies - List of dependency tuples that have already been recorded.
+        unrecorded_dependencies - List of dependency tuples that are scheduled to be recorded.
+    """
     new_dependencies = []
 
     for tups in new_dep_tups:
         if tups[2] == 'sym_linked_from' and '/' not in tups[1]:
-            logging.debug( f'discarding {tups} because it is a sym link duplicate.' )
+            logging.debug( f'Discarding {tups} because it is a sym link duplicate.' )
         elif tups in recorded_dependencies or tups in unrecorded_dependencies:
-            logging.debug( f'skipping recording dep tup ({tups}) because it is already recorded or tracked' )
+            logging.debug( f'Skipping dep tup ({tups}) because it is already recorded or tracked' )
         else:
-            logging.debug( f'adding {tups} to unrecorded dependencies' )
+            logging.debug( f'Adding {tups} to unrecorded dependencies' )
             unrecorded_dependencies.append(tups)
         new_dependencies.append(tups)
 
 
-def find_lib_deps( search_libs: List, libraries_dict: Dict[str, List[str]], dep_map_entry_libs: Set[str] ) -> None:
-    '''Take a list of libraries and recursively find all library dependencies. Passing dep_map_entry_libs by ref so updating as we go'''
-
+def find_lib_deps(
+        search_libs: List,
+        libraries_dict: Dict[str, List[str]],
+        dep_map_entry_libs: Set[str]
+        ) -> None:
+    """Recursively record library dependencies created by a binary.
+    
+    Take a list of libraries and recursively find all library dependencies.
+    dep_map_entry_libs are being passed by reference in order to update the
+    set of libraries required as new and unique libraries are found.
+    
+    Args:
+        search_libs - list of libraries to search for dependencies. On the first
+            call to this function, a list of libraries requied by a binary is passed
+            in. For all recursive calls, the list that is passed in is a list of 
+            libraries required by a library.
+        libraries_dict - Full dictionary of all libraries in the dependency map to
+            reference when checking for dependencies.
+        dep_map_entry_libs - Running list of library dependencies. This is being
+            passed in to keep track of libraries during recursive calls. Otherwise,
+            if two dependencies require one another it will initiate an infinite loop.
+    """
     for lib in search_libs:
         if lib not in dep_map_entry_libs:
             dep_map_entry_libs.add( lib )
@@ -456,10 +601,12 @@ def find_lib_deps( search_libs: List, libraries_dict: Dict[str, List[str]], dep_
 
 
 def record_nested_mounts( dependency_map: Dict[str, Dict[str, Union[str, List[str]] ] ] ) -> None:
-    '''Checking for mount file implicit dependencies after all unit file deps have been recorded
-        This is different from other implicit deps because it is dependant on all other unit files
-        being loaded.'''
-
+    """Create dependency relationships for nested mount unit files.
+    
+    Checking for mount file path dependencies after all unit file deps have been recorded.
+    This is different from other implicit deps because it is dependant on all other unit file
+    info being loaded, otherwise we might not see a nested filepath.
+    """
     for unit_file in dependency_map:
         # Check to see if this mount file is nested under any other mount units
         unit_type = unit_file.split('.')[-1]
@@ -490,6 +637,12 @@ def record_nested_mounts( dependency_map: Dict[str, Dict[str, Union[str, List[st
 
 
 def record_fstab_units( dependency_map, master_struct ) -> None:
+    """Return a DepMapUnit representing a unit file that will be dynamically created by Systemd
+    
+    Systemd parses /etc/fstab to generate a unit file based on the fstab entries. These unit files
+    will be created in /run/systemd/generator when the system boots up, but if a remote filesystem
+    is being parsed, these unit files will not be shown.
+    """
     dynamic_mount_points = {}
 
     for entry in master_struct:
@@ -512,7 +665,7 @@ def record_fstab_units( dependency_map, master_struct ) -> None:
 
 
 def compare_lists( origin_file_list: List[str], comp_file_list: List[str] ) -> str:
-
+    """Return a message detailing any unique entries between two lists."""
     unique_to_origin = []
     unique_to_comp = []
     ret_entry = None
@@ -543,36 +696,37 @@ def compare_map_files(
         comp_file,
         log: logging
         ) -> Dict[ str, Union[ str, Dict[ str, Dict[str, str] ] ] ]:
-    '''This function takes two previously recorded master struct or dependency map files and
-        compares all of the objects in each to find the differences between them. It does this
-        by iterating through each of the files after they have been translated back into their
-        original dictionaries and a line-by-line comparison is performed.  Any differences are
-        recorded in the diff_dict
+    """Return a dictionary containing any differences between two systemd files.
+    
+    This function takes two previously recorded master struct or dependency map files and
+    compares all of the objects in each to find the differences between them. It does this
+    by iterating through each of the files after they have been translated back into their
+    original dictionaries and a line-by-line comparison is performed.  Any differences are
+    recorded in the diff_dict.
 
-        Inputs:
-            - origin_file - Either a master struct file or a dependency map file.  This must be
-                the same type of file as the comparison file.
-            - comp_file - Either a master struct file or a dependency map file.  This must be
-                the same type of file as the origin file.
-            - log - A reference to our logging instance so that we can use logging
-        
-        Returns:
-            - diff_dict - Dictionary containing all of the differences between the origin_file
-                and the comp_file.
-
-        diff_dict = {
-            'top level key': 'This key was found in the init file but not the comp file!',
-            'top level key2': 'This key was found in the comp file but not the init file!',
-            'top level key3': {
-                'subkey 2': 'This subkey was found in the init file but not the comp file!',
-                'subkey 1': {
-                    'init file has: x': 'comp file has: y',
-                    'init file has: z': 'comp file does not have: z'
-                },
-            }
+    diff_dict = {
+        'top level key': 'This key was found in the init file but not the comp file!',
+        'top level key2': 'This key was found in the comp file but not the init file!',
+        'top level key3': {
+            'subkey 2': 'This subkey was found in the init file but not the comp file!',
+            'subkey 1': {
+                'init file has: x': 'comp file has: y',
+                'init file has: z': 'comp file does not have: z'
+            },
         }
-    '''
+    }
 
+    Args:
+        - origin_file - Either a master struct file or a dependency map file.  This must be
+            the same type of file as the comparison file.
+        - comp_file - Either a master struct file or a dependency map file.  This must be
+            the same type of file as the origin file.
+        - log - A reference to our logging instance so that we can use logging
+    
+    Returns:
+        - diff_dict - Dictionary containing all of the differences between the origin_file
+            and the comp_file.
+    """
     diff_dict = {}
 
     for tlk in origin_file:
@@ -649,9 +803,9 @@ def compare_map_files(
                             else:
                                 diff_dict[tlk][subkey].update({ item: diff_return })
 
-        ''' Since we don't want to iterate over the top level keys in the comparison file that we already know are in the origin
+        """ Since we don't want to iterate over the top level keys in the comparison file that we already know are in the origin
             file, we will check all of the subkeys in the comparison file's corresponding tlk now.  This way we can be sure that
-            all of the comparison file subkeys and items are seen for the tlk's that are also in the origin file.'''
+            all of the comparison file subkeys and items are seen for the tlk's that are also in the origin file."""
         for subkey in comp_file[tlk]:
             if subkey not in origin_file[tlk]:
                 if tlk not in diff_dict:
