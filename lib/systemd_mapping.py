@@ -664,33 +664,6 @@ def record_fstab_units( dependency_map, master_struct ) -> None:
     return dynamic_mount_points
 
 
-def compare_lists( origin_file_list: List[str], comp_file_list: List[str] ) -> str:
-    """Return a message detailing any unique entries between two lists."""
-    unique_to_origin = []
-    unique_to_comp = []
-    ret_entry = None
-
-    for item in origin_file_list:
-        if item not in comp_file_list:
-            unique_to_origin.append(item)
-
-    for item in comp_file_list:
-        if item not in origin_file_list:
-            unique_to_comp.append(item)
-
-    if unique_to_origin != [] and unique_to_comp != []:
-        ret_entry = f'Origin file contains {unique_to_origin}, which comparison file doesn\'t have.\nComparison file contains {unique_to_comp}, which origin file doesn\'t have.'
-    
-    elif unique_to_origin != []:
-        ret_entry = f'Origin file contains {unique_to_origin}, which the comparison file doesn\'t have'
-
-    elif unique_to_comp != []:
-        ret_entry = f'Comparison file contains {unique_to_comp}, which the origin file doesn\'t have'
-
-    return ret_entry
-
-
-
 def compare_map_files( 
         origin_file,
         comp_file,
@@ -745,7 +718,7 @@ def compare_map_files(
         elif isinstance(origin_file[tlk], str):
             if origin_file[tlk] != comp_file[tlk]:
                 diff_dict.update({ tlk: f"Origin file has: '{origin_file[tlk]}', but comparison file has: '{comp_file[tlk]}'" })
-                log.vdebug( f'Origin file entry:\n{origin_file[tlk]},\nComparison file entry:\n{comp_file[tlk]} ')
+                log.vdebug( f'Origin file entry:\n{origin_file[tlk]},\nComparison file entry:\n{comp_file[tlk]}' )
             continue
 
         for subkey in origin_file[tlk]:
@@ -757,13 +730,12 @@ def compare_map_files(
                     diff_dict[tlk].update({ subkey: 'This subkey was found in the origin file but not the comparison file!' })
 
                 log.vdebug( f'Origin file entry:\n{origin_file[tlk]},\nComparison file entry:\n{comp_file[tlk]}' )
-
                 continue
 
             # Check to see if subkey value is a dict or a list, since lists will always
             # be at the end of a nest and will always only contain strings.
             elif isinstance(origin_file[tlk][subkey], list):
-                diff_return = compare_lists( origin_file[tlk][subkey], comp_file[tlk][subkey] )
+                diff_return = compare_lists( origin_file[tlk][subkey], comp_file[tlk][subkey], diff_dict )
                 if diff_return != None:
                     if tlk not in diff_dict:
                         diff_dict.update({ tlk: { subkey: diff_return } })
@@ -793,7 +765,7 @@ def compare_map_files(
                                 diff_dict[tlk][subkey].update({ item: f'Origin file has: "{origin_file[tlk][subkey][item]}, but comparison file has: "{comp_file[tlk][subkey][item]}"' })
 
                     elif isinstance(origin_file[tlk][subkey][item], list):
-                        diff_return = compare_lists( origin_file[tlk][subkey][item], comp_file[tlk][subkey][item] )
+                        diff_return = compare_lists( origin_file[tlk][subkey][item], comp_file[tlk][subkey][item], diff_dict )
 
                         if diff_return != None:
                             if tlk not in diff_dict:
@@ -842,3 +814,77 @@ def compare_map_files(
             log.vdebug( f'Comparison file entry:\n{comp_file.keys()},\nOrigin file entry:\n{origin_file.keys()}' )
 
     return diff_dict
+
+
+def compare_lists( origin_file_list: List[str],
+                comp_file_list: List[str],
+                diff_dict: Dict[str, Union[ str, Dict[ str, Union[ str, Dict[str, str] ] ] ]]
+                ) -> str:
+    """Return a message detailing any unique entries between two lists.
+    
+    Any time libraries are updated between versions it causes a lot of redundant info
+    to be output in the 'binaries' and 'libraries' keys of the diff_dict. In order to
+    make the output more succinct and useful, this function iterates through each of
+    the 'unique' lists to check whether the item in question is merely a library update
+    or something more interesting to output.
+
+    Args:
+        origin_file_list - List of items specific to the origin file
+        comp_file_list - List of items specific to the comparison file
+        diff_dict - Reference to the comparison dictionary that will be output
+    
+    Returns:
+        ret_entry - String that describes the differences in items found between
+            the origin file and the comparison file. ret_entry is returned to the
+            caller to be recorded in the diff_dict.
+    """
+    unique_to_origin = []
+    unique_to_comp = []
+    ret_entry = None
+
+    for item in origin_file_list:
+        if item not in comp_file_list:
+            unique_to_origin.append(item)
+
+    for item in comp_file_list:
+        if item not in origin_file_list:
+            unique_to_comp.append(item)
+    
+    # Check if differences are just library updates
+    for orig_lib in unique_to_origin:
+        for comp_lib in unique_to_comp:
+            if orig_lib.split('.')[0] in comp_lib:
+                unique_to_origin.remove(orig_lib)
+                unique_to_comp.remove(comp_lib)
+                
+                if 'libraries' not in diff_dict:
+                    diff_dict.update({ 
+                        'libraries': {
+                            'updates': {
+                                orig_lib.split('.')[0]: f'Changed from "{orig_lib}" in origin file to "{comp_lib}" in comparison file.'
+                            }
+                        }
+                    })
+                elif 'updates' not in diff_dict['libraries']:
+                    diff_dict['libraries'].update({
+                        'updates': {
+                            orig_lib.split('.')[0]: f'Changed from "{orig_lib}" in origin file to "{comp_lib}" in comparison file.'
+                        }
+                    })
+                elif orig_lib.split('.')[0] not in diff_dict['libraries']['updates']:
+                    diff_dict['libraries']['updates'].update({
+                        orig_lib.split('.')[0]: f'Changed from "{orig_lib}" in origin file to "{comp_lib}" in comparison file.'
+                    })
+                
+                
+
+    if unique_to_origin != [] and unique_to_comp != []:
+        ret_entry = f'Origin file contains {unique_to_origin}, which comparison file doesn\'t have.\nComparison file contains {unique_to_comp}, which origin file doesn\'t have.'
+    
+    elif unique_to_origin != []:
+        ret_entry = f'Origin file contains {unique_to_origin}, which the comparison file doesn\'t have'
+
+    elif unique_to_comp != []:
+        ret_entry = f'Comparison file contains {unique_to_comp}, which the origin file doesn\'t have'
+
+    return ret_entry
