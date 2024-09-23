@@ -1,4 +1,4 @@
-'''
+"""
 grapher.py
 Authors: Jason M. Carter, Mike Huettel
 Date: December 2023
@@ -24,7 +24,7 @@ Description:  This is the main logic for the tool that creates the cytoscape gra
     unit file ('default.target' by default) and searches through the master struct to find any and all 
     relationships that are created by that unit. It does this relationship mapping for each unit file 
     in the master struct.  For more information see doc strings.
-'''
+"""
 
 from collections import defaultdict
 
@@ -44,7 +44,6 @@ class Grapher:
     There are more direct ways than the outline above; however, this provides us with a well-formed networkx
     graph, a pandas dataframe, and the ability to visualize it in Cytoscape.
     """
-
     # source and target are explicit
     EdgeFields = { 'interaction', 'subgraph', 'directed', 'edge_label_color', 'edge_line_type', 'source_arrow_shape', 'target_arrow_shape', 'edge_color' }
 
@@ -62,10 +61,12 @@ class Grapher:
 
 
     def init_grapher(self):
-        """Import modules needed for graphing.  Importing these conditionally allows us to run systemd snapshot and 
-        build a master struct on machines that don't have cytoscape or networkx installed without requiring each 
-        of those machines to install additional software."""
-
+        """Import modules needed for graphing.
+        
+        Importing these conditionally allows us to run systemd snapshot and build a master
+        struct on machines that don't have cytoscape or networkx installed without requiring each
+        of those machines to install additional software.
+        """
         global nx
         global p4c
         global pd
@@ -112,7 +113,6 @@ class Grapher:
 
     def get_network_name( self ):
         """Uses only py4cytoscape"""
-    
         # this still works and produces a list of all the network names in cytoscape.
         self.log.debug("Getting network name...")
         network_list = p4c.networks.get_network_list()
@@ -135,7 +135,6 @@ class Grapher:
         Returns:
             The networkx graph that was built and sent to cytoscape for rendering.
         """
-
         self.build( master_struct, force )
         edf = Grapher.make_edge_dataframe( self.G )
         vdf = Grapher.make_vertex_dataframe( self.G )
@@ -161,8 +160,6 @@ class Grapher:
         Args:
             G : the Multigraph
         """
-
-
         for uid, adj_udict in G.adj.items():
             print("vertex: {}".format( uid ))
             for vk, vv in G.nodes[ uid ].items():
@@ -202,7 +199,6 @@ class Grapher:
             Exception if the root node is NOT IN G.
             We could just return the empty graph, but that seems much less informative.
         """
-
         self.log.debug("Starting subtree build...")
         root_string = str(root)
 
@@ -254,7 +250,6 @@ class Grapher:
 
         Raises:
         """
-
         self.log.debug("Building graph...")
 
         if not rebuild_graph and self.G:
