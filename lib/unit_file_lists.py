@@ -1,4 +1,4 @@
-'''
+"""
 unit_file_lists.py
 Authors: Mike Huettel, Jason M. Carter
 Date: December 2023
@@ -22,7 +22,7 @@ Contributors:
 Description:  This file holds all of the file lists that are used by the tool. This is where the tool
     goes to find which options are available to which unit files, as well as which sections are available
     to which unit types. For more information, check the doc strings of a specific list below.
-'''
+"""
 
 sys_unit_paths = [
     '/etc/systemd/system.control/',
@@ -39,7 +39,7 @@ sys_unit_paths = [
     '/usr/lib/systemd/system/',
     '/run/systemd/generator.late/'
 ]
-'''List of all of the system paths systemd will check for unit files'''
+"""List of all of the system paths systemd will check for unit files"""
 
 usr_unit_paths = [
     '~/.config/systemd/user.control/',
@@ -57,7 +57,7 @@ usr_unit_paths = [
     '/usr/lib/systemd/user/',
     '$XDG_RUNTIME_DIR/systemd/generator.late/'
 ]
-'''List of all the user paths systemd will check for unit files'''
+"""List of all the user paths systemd will check for unit files"""
 
 unit_generic_opts = [
     'Description',
@@ -102,8 +102,8 @@ unit_generic_opts = [
     'RebootArgument',
     'SourcePath'
 ]
-'''This is a full listing of generic unit options. 
-This is used to parse the unit file [Unit] section.'''
+"""This is a full listing of generic unit options. 
+This is used to parse the unit file [Unit] section."""
 
 unit_cond_assert_opts = [
     'ConditionArchitecture',
@@ -172,9 +172,9 @@ unit_cond_assert_opts = [
     'AssertCPUPressure',
     'AssertIOPressure'
 ]
-'''This is a full list of generic unit file conditions/assertions.
+"""This is a full list of generic unit file conditions/assertions.
 This is also used to parse the unit file [Unit] section, but these 
-are grouped separately due to usage similiarty and number of items.'''
+are grouped separately due to usage similiarty and number of items."""
 
 unit_install_opts = [
     'Alias',
@@ -183,8 +183,8 @@ unit_install_opts = [
     'Also',
     'DefaultInstance'
 ]
-'''This is a list of all generic unit file install options. 
-This is used to parse the unit file [Install] section.'''
+"""This is a list of all generic unit file install options. 
+This is used to parse the unit file [Install] section."""
 
 serv_unit_opts = [
     'Type',
@@ -226,7 +226,7 @@ serv_unit_opts = [
     'OpenFile',
     'ReloadSignal'
 ]
-'''
+"""
     This is a list of options that are unit.service specific.  This will be used to parse the unit files.
     Service unit files may include [Unit] and [Install] sections, and must include a [Service] section.
 
@@ -239,9 +239,9 @@ serv_unit_opts = [
         - Requires= and After=sysinit.target
         - After=basic.target
         - Before= and Conflicts=shutdown.target
-'''
+"""
 
-'''
+"""
     Target units exist only to group units via dependencies.  As such, no unit.target file specific options are supported.
     Target unit files may include [Unit] and [Install] sections.  See systemd.target man page for more info.
 
@@ -251,9 +251,9 @@ serv_unit_opts = [
     Default dependencies:
         - Adds After= to all unit files that this unit Wants= and Requires=
         - Before= and Conflicts=shutdown.target
-'''
+"""
 
-'''
+"""
     Device units have no file specific options.  They may use the generic [Unit] and [Install] sections and
     options, but there is no [Device] section.  Device units are named after the sys and dev paths they control.
     See systemd.device man page for more info.
@@ -263,9 +263,9 @@ serv_unit_opts = [
 
     Default dependencies:
         - None
-'''
+"""
 
-'''
+"""
     Slice units are like central repos to control system resource usage.  No unit.slice file specific options are supported,
     but slice unit files may include [Unit] and [Install] sections, and may have a [Slice] section that enables the
     use of resource-control unit options.  See systemd.slice man page for more info.
@@ -275,7 +275,7 @@ serv_unit_opts = [
 
     Default dependencies:
         - Before= and Conflicts=shutdown.target
-'''
+"""
 
 sock_unit_opts = [
     'ListenStream',
@@ -339,7 +339,7 @@ sock_unit_opts = [
     'TriggerLimitIntervalSec',
     'TriggerLimitBurst'
 ]
-'''
+"""
     This is a list of options that are unit.socket specific.  This will be used to parse the unit files.
     Socket unit files may include [Unit] and [Install] sections, and may include a [Socket] section that
     enables the use of exec, kill, and resource-control unit options as well as the listed socket specific options.
@@ -354,7 +354,7 @@ sock_unit_opts = [
         - Before=sockets.target
         - Requires= and After=sysinit.target
         - Before= and Conflicts=shutdown.target
-'''
+"""
 
 mnt_unit_opts = [
     'What',
@@ -368,7 +368,7 @@ mnt_unit_opts = [
     'DirectoryMode',
     'TimeoutSec'
 ]
-'''
+"""
     This is a list of options that are unit.mount specific.  This will be used to parse the unit files.
     Mount unit files may include [Unit] and [Install] sections, and must include a [Mount] section that
     enables the use of exec, kill, and resource-control unit options as well as the listed mount specific options.
@@ -385,7 +385,7 @@ mnt_unit_opts = [
         - Before=local-fs.target
         - After=remote-fs-pre.target, network.target and network-online.target if mount is a network mount
         - Before=remote-fs.target if mount is a network mount
-'''
+"""
 
 automnt_unit_opts = [
     'Where',
@@ -393,7 +393,7 @@ automnt_unit_opts = [
     'DirectoryMode',
     'TimeoutIdleSec'
 ]
-'''
+"""
     This is a list of options that are unit.automount specific.  This will be used to parse the unit files.
     Automount unit files may include [Unit], [Install], and [Automount] sections, and must be named after
     the automount directories they control, as well as a matching mount unit file.
@@ -405,7 +405,7 @@ automnt_unit_opts = [
         - Before= and Conflicts=umount.target
         - Before=local-fs.target
         - After=local-fs-pre.target
-'''
+"""
 
 swap_unit_opts = [
     'What',
@@ -413,7 +413,7 @@ swap_unit_opts = [
     'Options',
     'TimeoutSec'
 ]
-'''
+"""
     This is a list of options that are unit.swap specific. This will be used to parse the unit files.
     Swap unit files may include [Unit] and [Install] sections, and may include a [Swap] section that
     enables the use of exec, kill, and resource-control unit options as well as the listed swap specific options.
@@ -424,7 +424,7 @@ swap_unit_opts = [
     Default dependencies:
         - Before= and Conflicts=umount.target
         - Before=swap.target
-'''
+"""
 
 path_unit_opts = [
     'PathExists',
@@ -438,7 +438,7 @@ path_unit_opts = [
     'TriggerLimitIntervalSec',
     'TriggerLimitBurst'
 ]
-'''
+"""
     This is a list of options that are unit.path specific.  This will be used to parse the unit files.
     Path unit files may include [Unit] and [Install] sections, and must include a [Path] section, which
     enables the use of the listed path specific options.
@@ -451,7 +451,7 @@ path_unit_opts = [
         - Before=paths.target
         - After= and Requires=sysinit.target
         - Before= and Conflicts=shutdown.target
-'''
+"""
 
 timer_unit_opts = [
     'OnActiveSec',
@@ -470,7 +470,7 @@ timer_unit_opts = [
     'WakeSystem',
     'RemainAfterElapse'
 ]
-'''
+"""
     This is a list of options that are unit.timer specific.  This will be used to parse the unit files.
     Timer unit files may include [Unit] and [Install] sections, and must include a [Timer] section, which
     enables the use of the listed timer specific options.
@@ -485,14 +485,14 @@ timer_unit_opts = [
         - Before=timers.target
         - Before= and Conflicts=shutdown.target
         - After=time-set.target time-sync.target IF OnCalendar= is used
-'''
+"""
 
 scope_unit_opts = [
     'OOMPolicy',
     'RuntimeMaxSec',
     'RuntimeRandomizedExtraSec'
 ]
-'''
+"""
     This is a list of options that are unit.scope specific.  This will be used to parse the unit files.
     Scope units manage a set of externally created system processes, and unlike service units, they can't fork.
     Scope unit files may include a [Unit] section, as well as a [Scope] section that enables the use of exec,
@@ -503,7 +503,7 @@ scope_unit_opts = [
     
     Default dependencies:
         - Before= and Conflicts=shutdown.target
-'''
+"""
 
 kill_unit_opts = [
     'KillMode',
@@ -514,8 +514,8 @@ kill_unit_opts = [
     'FinalKillSignal',
     'WatchdogSignal'
 ]
-'''This is a list of options that are labelled as systemd.kill options, and are 
-made available to multiple types of units.  See systemd.kill man page for more info.'''
+"""This is a list of options that are labelled as systemd.kill options, and are 
+made available to multiple types of units.  See systemd.kill man page for more info."""
 
 res_con_unit_opts = [
     'CPUAccounting',
@@ -564,8 +564,8 @@ res_con_unit_opts = [
     'ManagedOOMMemoryPressureLimit',
     'ManagedOOMPreference'
 ]
-'''This is a list of options that are labelled as systemd.resource-control options, and 
-are available to multiple types of units.  See systemd.resource-control man page for more info.'''
+"""This is a list of options that are labelled as systemd.resource-control options, and 
+are available to multiple types of units.  See systemd.resource-control man page for more info."""
 
 exec_unit_opts = [
     'ExecSearchPath',
@@ -712,8 +712,8 @@ exec_unit_opts = [
     'UtmpIdentifier',
     'UtmpMode'
 ]
-'''This is a list of options that are labelled as systemd.exec options, and are 
-available to multiple types of units.  See systemd.exec man page for more info.'''
+"""This is a list of options that are labelled as systemd.exec options, and are 
+available to multiple types of units.  See systemd.exec man page for more info."""
 
 possible_unit_opts = {
     'target'    : [unit_generic_opts,
@@ -790,11 +790,11 @@ possible_unit_opts = {
                    res_con_unit_opts,
                    exec_unit_opts]
 }
-'''
+"""
     This is a mapping struct that maps a unit type to all of the possible lists of options above that should be 
     available to it.  This will make the main code a lot cleaner and easier to read. The idea is to get a unit file 
     suffix, and iterate through possible_unit_opts[unit_type].
-'''
+"""
 
 unit_dependency_opts = [
     'Wants',
@@ -808,11 +808,11 @@ unit_dependency_opts = [
     'Service',
     'Unit'
 ]
-'''
+"""
     This is a list of unit options that create dependencies to build the dependency and runtime tree.
     This will be used to check the unit files after they are parsed and, if necessary, place those dependencies in the
     unrecorded_dependencies list, right before the current unit file's info is sent to the dependency map dictionary.
-'''
+"""
 
 space_delim_opts = [
     'Documentation',
@@ -837,10 +837,10 @@ space_delim_opts = [
     'RequiresMountsFor',
     'Sockets'
 ]
-'''
+"""
     List of all space-delimited options that ensures that all unit dependencies are recorded, and 
     options like Exec and Description aren't a list of strings when they need to be a single string.
-'''
+"""
 
 command_directives = [
     'ExecStart',
@@ -851,11 +851,11 @@ command_directives = [
     'ExecStop',
     'ExecStopPost'
 ]
-'''
+"""
     These command directives are options that list binaries that are used when the service contaning 
     these options is triggered. These are used by the master struct to map the binary specified to
     libraries it requires, files it uses or references, and other interesting strings found in the binary.
-'''
+"""
 
 ms_only_keys = [
     'remote_path',
@@ -864,7 +864,7 @@ ms_only_keys = [
     'files',
     'strings'
 ]
-'''
+"""
     This is a list of keys that have different formatting than the unit file entries and shouldn't be 
     parsed by the dependency map.
-'''
+"""

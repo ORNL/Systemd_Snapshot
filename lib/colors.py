@@ -1,4 +1,4 @@
-'''
+"""
 unit_file_lists.py
 Authors: Jason M. Carter, Mike Huettel
 Date: December 2023
@@ -26,7 +26,7 @@ color sites of interest:
 
     - https://color.adobe.com/create/color-wheel
     - https://www.color-hex.com/color-palettes/
-'''
+"""
 
 element_fill_colors = {
         'ELEMENT' : '#c0c0c0',
@@ -106,4 +106,3 @@ orange_colors = {
         'light'  : '#ffb38a',
         'white'  : '#ffd7b5',
         }
-

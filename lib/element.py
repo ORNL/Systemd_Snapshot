@@ -1,4 +1,4 @@
-'''
+"""
 element.py
 Authors: Jason M. Carter, Mike Huettel
 Date: December 2023
@@ -22,15 +22,14 @@ Contributors:
 Description:  This module parses a master struct to create a graph of all unit files and 
     symbolic links found.  Since dependency directories have all items within them recorded 
     individually, the dependency directory entries are ignored.
-'''
-
-from pathlib import Path
+"""
 
 import re
 
-from . import colors
+from pathlib import Path
 
-from lib.unit_file_lists import unit_dependency_opts
+from . import colors
+from lib import unit_file_lists
 
 class ElementFactory:
     """A class whose instances construct Element instances for use in graphing Systemd
@@ -48,7 +47,6 @@ class ElementFactory:
             remote_path: the filesystem prefix path TO THE FIRMWARE root directory
             log: logger for messages.
         """
-
         self.remote_path = remote_path
         self.log = log
 
@@ -72,7 +70,6 @@ class ElementFactory:
             ValueError: if the file_type in the data['metadata'] dictionary is not 
                         one of sym_link, unit_file, dep_dir
         """
-    
         ftype = data['metadata']['file_type']
     
         if ftype == 'sym_link':
@@ -126,9 +123,8 @@ class Element:
 
     We can look up Elements in a dictionary by their key: ( id, type ) pairs. They have hashcodes and equals methods.
     """
-
     TypeKey = 'ELEMENT'
-    EdgeDirectives = unit_dependency_opts
+    EdgeDirectives = unit_file_lists.unit_dependency_opts
     EdgeDirectives.append( 'OnFailure' )
 
     @staticmethod
@@ -153,7 +149,6 @@ class Element:
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         attrs = {}
 
         attrs['subgraph'] = subgraph
@@ -186,7 +181,6 @@ class Element:
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         attrs = {}
 
         attrs['interaction'] = edge_label
@@ -210,7 +204,6 @@ class Element:
         Returns:
             The label width as a float
         """
-
         width = len( label_string ) * 5.0
         if width < 100.0:
             return 100.0
@@ -228,7 +221,6 @@ class Element:
         Returns:
             The height as a float
         """
-
         height = 15.0 * len( label_string )/50.0
         if height < 30.0:
             return 30.0
@@ -244,7 +236,6 @@ class Element:
         Returns:
             The width as a float
         """
-
         width = len( label_string ) * 5.0
         if width < 100.0:
             return 100.0
@@ -261,7 +252,6 @@ class Element:
             log: logger for tracing and errors.
 
         """
-
         self.log = log
 
         # Elements are uniquely identified by their UID name (could be a unit name or path) and a type.
@@ -286,7 +276,6 @@ class Element:
         Returns:
             A string; this is usually a path or the name of a unit file.
         """
-
         return self._key[0]
 
     def get_type( self ):
@@ -295,7 +284,6 @@ class Element:
         Returns:
             A string; this is a standardized string, e.g., UNIT, that identifies the type of Element.
         """
-
         return self._key[1]
 
     def add_to_graph( self, G ):
@@ -317,7 +305,6 @@ class Element:
             A set of pairs of strings; these pairs are expected to be valid keys that can map to 
             instances of Element.
         """
-
         return { c.key() for c in self.get_children() }
 
     def get_children( self ):
@@ -336,7 +323,6 @@ class Element:
         Returns:
             A pair of strings; this should not change once set.
         """
-
         return self._key
 
     def __str__( self ):
@@ -345,7 +331,6 @@ class Element:
         Returns:
             A string that represents this element; the type is written first.
         """
-
         return "{}: {}".format( self.get_type(), self.id() )
 
     def __repr__( self ):
@@ -354,7 +339,6 @@ class Element:
         Returns:
             The repr of the key pair: ( string, string ) that uniquely identifies this Element
         """
-
         return repr( self._key )
 
     def __hash__( self ):
@@ -363,7 +347,6 @@ class Element:
         Returns:
             The hashcode for this Element is the hashcode of its key pair.
         """
-
         return hash( self.key() )
 
     def __eq__( self, other ):
@@ -372,7 +355,6 @@ class Element:
         Returns:
             True if this Element is equivalent to other; False otherwise.
         """
-
         if isinstance( other, Element ):
             return self.key() == other.key()
 
@@ -388,7 +370,6 @@ class Element:
             The object key maps to in the Element's metadata field, or None if the key is
             not in the metadata.
         """
-
         try:
             return self.metadata[ key ]
         except KeyError as error:
@@ -405,7 +386,6 @@ class Element:
         Returns:
             Nothing.
         """
-
         if key not in self.metadata:
             self.metadata[ key ] = value
         elif isinstance( self.metadata[ key ], list ):
@@ -423,7 +403,6 @@ class Element:
         Returns:
             True: this dict has that key; False otherwise.
         """
-
         return prop in self.properties
 
     def get_property( self, prop ):
@@ -436,7 +415,6 @@ class Element:
             The object key maps to in the Element's Systemd Directives, or None if the key is
             not in the metadata.
         """
-
         try:
             return self.properties[ prop ]
         except (IndexError, KeyError) as error:
@@ -444,9 +422,7 @@ class Element:
             return None
 
 class Alias( Element ):
-    """A symbolic link to a unit file. The term Alias is used in Systemd documentation.
-    """ 
-
+    """A symbolic link to a unit file. The term Alias is used in Systemd documentation.""" 
     TypeKey = 'ALIAS'
 
     @staticmethod
@@ -459,7 +435,6 @@ class Alias( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         # sets subgraph, node_label, node_label_width, node_height, node_width
         attrs = Element.get_default_vertex_attrs( Alias.TypeKey, node_label )
 
@@ -480,7 +455,6 @@ class Alias( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         if not edge_label:
             edge_label = Alias.TypeKey
 
@@ -500,7 +474,6 @@ class Alias( Element ):
             data: the dictionary from master structure that contains Alias information.
             log: logger for messaging.
         """
-
         super().__init__( uid, data, log )
         self._key = ( self.id(), Alias.TypeKey )
 
@@ -527,9 +500,7 @@ class Alias( Element ):
         return Alias.edge_attrs( edge_label )
 
     def get_children_keys( self ):
-        """For an Alias, the children and NOT Element INSTANCES, so we just return the list of pairs of strings.
-        """
-
+        """For an Alias, the children and NOT Element INSTANCES, so we just return the list of pairs of strings."""
         if not self._children:
             self.get_children()
 
@@ -553,9 +524,7 @@ class Alias( Element ):
             G.add_edge( repr(self), repr(c), **Alias.edge_attrs( Alias.TypeKey ) )
 
 class Unit( Element ):
-    """A systemd unit file; Unit Elements are NOT uniquely identified by full path.
-    """
-
+    """A systemd unit file; Unit Elements are NOT uniquely identified by full path."""
     TypeKey = 'UNIT'
     TemplateMatcher = re.compile( '^\S+@\S+\.\S+$' )
 
@@ -569,7 +538,6 @@ class Unit( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         # sets subgraph, node_label, node_label_width, node_height, node_width
         attrs = Element.get_default_vertex_attrs( Unit.TypeKey, node_label )
 
@@ -589,7 +557,6 @@ class Unit( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         # sets directed, subgraph, interaction are set here
         attrs = Element.get_default_edge_attrs( Unit.TypeKey, edge_label )
 
@@ -608,7 +575,6 @@ class Unit( Element ):
                 needed to file and process any executables within the firmware.
             log: message logger.
         """
-
         super().__init__( path, data, log )
 
         self.remote_path = remote_path
@@ -623,7 +589,6 @@ class Unit( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         return Unit.vertex_attrs( self.id() )
 
     def get_edge_attrs( self, edge_label ):
@@ -635,7 +600,6 @@ class Unit( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         return Unit.edge_attrs( edge_label )
 
     def get_children( self ):
@@ -644,7 +608,6 @@ class Unit( Element ):
         Returns:
             the set of Unit children that are associated with Commands that are executed.
         """
-
         if not self._children:
             # the child set is empty.
             for exec_directive in Command.Directives:
@@ -666,7 +629,6 @@ class Unit( Element ):
         Returns:
             The set of Unit Instances that are associates with dependency Systemd directives.
         """
-
         s = set()
         if prop in Element.EdgeDirectives and self.has_property( prop ):
             for c in self.get_property( prop ):
@@ -683,7 +645,6 @@ class Unit( Element ):
         Returns:
             The set of Unit Instances that are associates with sequencing Systemd directives.
         """
-
         s = set()
         if prop in ('After', 'Before') and self.has_property( prop ):
             for c in self.get_property( prop ):
@@ -704,7 +665,6 @@ class Unit( Element ):
         Args:
             G: the networkx graph object for this Systemd specification.
         """
-
         for c in self.get_children():
             # Unit edge attributes for now with the label being the type of command.
             G.add_edge( repr(self), repr(c), **self.get_edge_attrs( c.exec_directive ) )
@@ -739,7 +699,6 @@ class DropInFile( Element ):
 
     These files contain Systemd Directives that may include Exec* directives that should be parsed as well.
     """
-
     TypeKey = 'DROPIN'
     TemplateMatcher = re.compile( '^\S+@\S+\.\S+$' )
 
@@ -753,7 +712,6 @@ class DropInFile( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         # sets subgraph, node_label, node_label_width, node_height, node_width
         attrs = Element.get_default_vertex_attrs( DropInFile.TypeKey, node_label )
 
@@ -774,7 +732,6 @@ class DropInFile( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         # sets directed, subgraph, interaction are set here
         attrs = Element.get_default_edge_attrs( DropInFile.TypeKey, edge_label )
 
@@ -792,7 +749,6 @@ class DropInFile( Element ):
             remote_path:
             log:
         """
-
         super().__init__( uid, data, log )
         self._key = ( uid, DropInFile.TypeKey )
         self.remote_path = remote_path
@@ -807,7 +763,6 @@ class DropInFile( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         return DropInFile.vertex_attrs( self.id() )
 
     def get_edge_attrs( self, edge_label ):
@@ -819,7 +774,6 @@ class DropInFile( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         return DropInFile.edge_attrs( edge_label )
 
     def get_children( self ):
@@ -828,7 +782,6 @@ class DropInFile( Element ):
         Returns:
             The set of children of this Element as Command instances.
         """
-
         if not self._children:
             # the child set is empty.
             for exec_directive in Command.Directives:
@@ -850,7 +803,6 @@ class DropInFile( Element ):
         Returns:
             The set of Unit Instances that are associates with dependency Systemd directives.
         """
-
         s = set()
         if prop in Element.EdgeDirectives and self.has_property( prop ):
             for c in self.get_property( prop ):
@@ -867,7 +819,6 @@ class DropInFile( Element ):
         Returns:
             The set of Unit Instances that are associates with sequencing Systemd directives.
         """
-
         s = set()
         if prop in ('After', 'Before') and self.has_property( prop ):
             for c in self.get_property( prop ):
@@ -880,7 +831,6 @@ class DropInFile( Element ):
         Args:
             G: the graph to add this Element to.
         """
-
         G.add_node( repr(self), **DropInFile.vertex_attrs( self.id() ) )
 
     def make_graph_edges( self, G ):
@@ -889,7 +839,6 @@ class DropInFile( Element ):
         Args:
             G: the networkx graph object for this Systemd specification.
         """
-
         for c in self.get_children():
             # Unit edge attributes for now with the label being the type of command.
             G.add_edge( repr(self), repr(c), **self.get_edge_attrs( c.exec_directive ) )
@@ -927,12 +876,10 @@ class CommandLine:
 
     This is NOT AN ELEMENT.
     """
-
     SpecialPrefixes = ('@', '-', ':', '+', '!' )
 
     def __init__( self, cstr ):
         """Constructor for a CommandLine instances"""
-
         self.cstr = cstr
         self.prefixes = set()
         self.executable = None
@@ -945,7 +892,6 @@ class CommandLine:
         Returns:
             A string that is the path to the executable.
         """
-
         return self.executable
 
     def __str__( self ):
@@ -954,7 +900,6 @@ class CommandLine:
         Returns:
             The command line without prefixes.
         """
-
         s = self.executable
         if self.arguments:
             # add arguments only if they are present.
@@ -971,7 +916,6 @@ class CommandLine:
         Returns:
             An ExecCommand instance that characterizes the command and its prefixes.
         """
-
         parts = cstr.split(maxsplit=1)
 
         print("cstr: {} parts: {}".format( cstr, parts ))
@@ -1027,7 +971,6 @@ class Command( Element ):
     ! : execute with ELEVATED PRIVILEDGES
     !! : also related to PRIVILEDGES
     """
-
     TypeKey = 'COMMAND'
 
     Directives = ('ExecStart', 'ExecCondition', 'ExecStartPre', 'ExecStartPost', 'ExecReload', 'ExecStop', 'ExecStopPost')
@@ -1042,7 +985,6 @@ class Command( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         # sets subgraph, node_label, node_label_width, node_height, node_width
         attrs = Element.get_default_vertex_attrs( Command.TypeKey, node_label )
 
@@ -1062,7 +1004,6 @@ class Command( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         # sets directed, subgraph, interaction are set here
         attrs = Element.get_default_edge_attrs( Command.TypeKey, edge_label )
 
@@ -1088,9 +1029,7 @@ class Command( Element ):
 
         Raises:
             Exception when the directive is not correct.
-
         """
-
         # we will update the id later.
         super().__init__( None, dict(), log )
 
@@ -1112,7 +1051,6 @@ class Command( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         return Command.vertex_attrs( self.id() )
 
     def get_edge_attrs( self, edge_label ):
@@ -1124,7 +1062,6 @@ class Command( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         return Command.edge_attrs( edge_label )
 
     def get_children( self ):
@@ -1133,7 +1070,6 @@ class Command( Element ):
         Returns:
             The set of children of this Command Element as Executable instances.
         """
-
         if not self._children:
             # the child set is empty.
             for cmd in self.commands:
@@ -1146,7 +1082,6 @@ class Command( Element ):
         Args:
             G: the graph to add this Element to.
         """
-
         label = '\n'.join( self.id().split(';') )
         G.add_node( repr(self), **Command.vertex_attrs( label ) )
 
@@ -1156,7 +1091,6 @@ class Command( Element ):
         Args:
             G: the networkx graph object for this Systemd specification.
         """
-
         for c in self.get_children():
             # Command edge attributes for now with the label being the type of command.
             G.add_edge( repr(self), repr(c), **self.get_edge_attrs( Executable.TypeKey ) )
@@ -1178,7 +1112,6 @@ class Command( Element ):
         Raises:
             Exception when the exec_directive key is NOT in the self.properties map.
         """
-
         for cstr in exec_list:
             # go through each command in the list.
             if not len(cstr):
@@ -1204,7 +1137,6 @@ class Executable( Element ):
     We will use this class to also execute linux tools to perform forensics on this particular binary.
     These tools should be as general as possible, so they can accomodate a variety of architectures.
     """
-
     TypeKey = 'EXECUTABLE'
 
     @staticmethod
@@ -1215,7 +1147,6 @@ class Executable( Element ):
         Returns:
             the attribute dictionary.
         """
-
         # sets subgraph, node_label, node_label_width, node_height, node_width
         attrs = Element.get_default_vertex_attrs( Executable.TypeKey, node_label )
 
@@ -1233,7 +1164,6 @@ class Executable( Element ):
         Returns:
             the attribute dictionary.
         """
-
         # sets directed, subgraph, interaction are set here
         attrs = Element.get_default_edge_attrs( Executable.TypeKey, edge_label )
 
@@ -1255,7 +1185,6 @@ class Executable( Element ):
         Returns:
             An Executable Instance.
         """
-
         super().__init__( executable, dict(), log )
 
         self.log = log
@@ -1275,7 +1204,6 @@ class Executable( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         return Executable.vertex_attrs( self.id() )
 
     def get_edge_attrs( self, edge_label ):
@@ -1287,7 +1215,6 @@ class Executable( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         return Executable.edge_attrs( edge_label )
 
     def get_children( self ):
@@ -1299,7 +1226,6 @@ class Executable( Element ):
         Returns:
             The set of children of this Command Element as Executable instances.
         """
-
         if not self._children:
             # the child set is empty.
             self._children.update( self.get_dynamic_libs() )
@@ -1321,7 +1247,6 @@ class Executable( Element ):
         Args:
             G: the networkx graph object for this Systemd specification.
         """
-
         for c in self.get_children():
             s_str = repr(self)
             t_str = repr(c)
@@ -1344,7 +1269,6 @@ class Executable( Element ):
         Returns:
             The set of Library instances; these have the methods to grab attributes for graphing.
         """
-
         if not self.dlibs:
             # only do this operation one time.
             # do not need a / character here because the remote path does NOT end in one
@@ -1365,7 +1289,6 @@ class Executable( Element ):
             a set of strings (maybe file paths) that could indicate a file that is used by this
             binary.
         """
-
         if not self.fstrings:
             # only do this operation one time.
 
@@ -1384,7 +1307,6 @@ class Executable( Element ):
             a set of strings (maybe paths) that could indicate a path/file that is used by this
             binary.
         """
-
         if not self.pstrings:
             # only do this operation one time.
             # do not need a / character here because the remote path does NOT end in one
@@ -1403,7 +1325,6 @@ class Library( Element ):
 
     This is MEANT to have NO CHILDREN.
     """
-
     TypeKey = 'LIBRARY'
 
     @staticmethod
@@ -1414,7 +1335,6 @@ class Library( Element ):
         Returns:
             the attribute dictionary.
         """
-
         # sets subgraph, node_label, node_label_width, node_height, node_width
         attrs = Element.get_default_vertex_attrs( Library.TypeKey, node_label )
 
@@ -1431,7 +1351,6 @@ class Library( Element ):
         Returns:
             the attribute dictionary.
         """
-
         # sets directed, subgraph, interaction are set here
         attrs = Element.get_default_edge_attrs( Library.TypeKey, edge_label )
 
@@ -1447,7 +1366,6 @@ class Library( Element ):
         Returns:
             A Library instance.
         """
-
         super().__init__( libname, dict(), log )
         self._key = ( libname, Library.TypeKey )
 
@@ -1468,7 +1386,6 @@ class Library( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         return Library.edge_attrs( edge_label )
 
     def add_to_graph( self, G ):
@@ -1488,7 +1405,6 @@ class String( Element ):
 
     This is MEANT to have NO CHILDREN.
     """
-
     TypeKey = 'STRING'
 
     @staticmethod
@@ -1499,7 +1415,6 @@ class String( Element ):
         Returns:
             the attribute dictionary.
         """
-
         # sets subgraph, node_label, node_label_width, node_height, node_width
         attrs = Element.get_default_vertex_attrs( String.TypeKey, node_label )
 
@@ -1517,7 +1432,6 @@ class String( Element ):
         Returns:
             the attribute dictionary.
         """
-
         # sets directed, subgraph, interaction are set here
         attrs = Element.get_default_edge_attrs( String.TypeKey, edge_label )
 
@@ -1533,7 +1447,6 @@ class String( Element ):
         Returns:
             A String instance.
         """
-
         super().__init__( string, dict(), log )
         self._key = ( string, "{}.{}".format(String.TypeKey,category) )
 
@@ -1543,7 +1456,6 @@ class String( Element ):
         Returns:
             A dictonary containing the attributes for this vertex; the keys are special.
         """
-
         return String.vertex_attrs( self.id() )
 
     def get_edge_attrs( self, edge_label ):
@@ -1555,7 +1467,6 @@ class String( Element ):
         Returns:
             A dictonary containing the attributes for this edge; the keys are special.
         """
-
         return String.edge_attrs( edge_label )
 
     def add_to_graph( self, G ):

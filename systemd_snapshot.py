@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-'''
+"""
 Systemd Snapshot
 Authors: Mike Huettel, Jason M. Carter
 Date: December 2023
@@ -52,7 +52,7 @@ Description: This tool creates a systemd snapshot of either locally or remotely 
     Graphs can also be trasferred to Cytoscape for visualization via Cytoscape's REST api and the py4cytoscape
     library. There is a capability to build a custom style for your graph -- that will require some additional
     documentation.
-'''
+"""
 
 import logging
 import pdb
@@ -72,7 +72,6 @@ def init_logger( name: str, level: str ) -> logging:
     """Establish a logger for the system to use with a given name and log level.
     This also uses a log message formatter that can be customized as needed.
     """
-
     def logForLevel(self, message, *args, **kwargs):
         if self.isEnabledFor(5):
             self._log(5, message, args, **kwargs)
@@ -100,9 +99,7 @@ def init_logger( name: str, level: str ) -> logging:
 
 
 def main():
-    '''This tool creates a systemd snapshot of either locally or remotely hosted file systems, and records 
-    collected data for forensic analysis.'''
-
+    """Create a systemd snapshot of either locally or remotely hosted file systems."""
     parser = ArgumentParser(
         prog='systemd_snapshot',
         formatter_class=RawDescriptionHelpFormatter,

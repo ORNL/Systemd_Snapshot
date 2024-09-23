@@ -62,11 +62,10 @@ class DepMapUnit:
         implicitly.  See check_implicit_dependencies() in sysd_obj_parser.py for more info and references.
     - sym_linked_to is a dependency this tool is creating in order to separate symbolic links and the unit
         file they point to. If the links were followed instead we would have an incomplete picture of what
-        systemd is actually seeing."""
-
+        systemd is actually seeing.
+    """
     # DO NOT MODIFY THE CASE FOR THESE STRINGS. This is required to verify proper options in unit files.
     dep_creating_dirs = ['Wants', 'Requires']
-
 
     def __init__(self, unit_file: str, parent_unit_path: str, rev_dep: str) -> None:
         """Create the dep object shell for dep map units.
@@ -257,7 +256,6 @@ class DepMapUnit:
         dep map, overwriting any previous entry with the same name (same unit file).
         This prevents duplicate entries.
         """
-
         out_struct: Dict[str, Union[str, List[str]]] = {'unit_name': self.unit_name}
 
         for attribute in self.get_significant_attributes():

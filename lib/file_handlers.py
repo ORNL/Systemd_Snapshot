@@ -1,4 +1,4 @@
-'''
+"""
 file_handlers.py
 Authors: Mike Huettel, Jason M. Carter
 Date: December 2023
@@ -24,7 +24,7 @@ Description:  This file is currently unused, but is intended to provide a centra
     I would like to include the ability to specify input files, possibly encode or format the data in 
     other formats, etc., but for now it's just able to deal with the output files.  For more information, 
     see function comments or the README.md.
-'''
+"""
 
 import logging
 
@@ -35,11 +35,13 @@ from sys            import exit
 
 
 class MyEncoder(JSONEncoder):
-    """Allows us to send arbitrary data structures to json.dump and json.dumps and get reasonable
+    """Convert collection types into JSON compatible types.
+    
+    Allows us to send arbitrary data structures to json.dump and json.dumps and get reasonable
     output. This will detect SETS and convert then to LISTS that json knows how to output.
-    NOTE: Here we are IGNORING several of the critical objects. If custom encoders are needed place
-    them here."""
-
+    NOTE: Here we are IGNORING several of the critical objects. If custom encoders are needed
+    place them here.
+    """
     def default(self, obj):
         if isinstance(obj, set):
             return list(obj)
@@ -49,8 +51,7 @@ class MyEncoder(JSONEncoder):
 
 
 def load_input_file(file_path: str, log: logging) -> dict:
-    '''Takes a user path as a string, checks to verify it is a file, and then returns the dictionary saved in the file.'''
-
+    """Return a dictionary saved in the specified file if it is valid."""
     try:
         with open(file_path) as user_file:
             loaded_struct = load(user_file)
@@ -75,13 +76,15 @@ def load_input_file(file_path: str, log: logging) -> dict:
 
 
 def create_output_file(file_struct: dict, struct_type: str, output_file: str, overwrite: bool, log: logging) -> None:
-    '''The print_output() function will either send the final master_struct to a file or stdout depending on
-    whether the user includes the -o option when running systemd_mapper.  If nothing is stored in the dict
-    that is being printed then a message will be sent to the user indicating no data was found.  If there is
-    something in the specified dict, the function will either print the data to stdout or check to see if
-    the filename specified is already a file.  If the file already exists then no file will be written to
-    avoid accidently overwriting files.'''
-
+    """Write dictionary output to a file.
+    
+    The print_output() function will either send the final master_struct to a file or stdout
+    depending on whether the user includes the -o option when running systemd_mapper. If
+    nothing is stored in the dict that is being printed then a message will be sent to the user
+    indicating no data was found.  If there is something in the specified dict, the function will
+    either print the data to stdout or check to see if the filename specified is already a file.
+    If the file already exists then no file will be written to avoid accidently overwriting files.
+    """
     if file_struct != {}:
 
         stype_len = len(struct_type) + 1

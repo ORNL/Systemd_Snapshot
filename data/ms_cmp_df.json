@@ -1,8 +1,0 @@
-{
-    "libraries": {
-        "updates": {
-            "libc": "Changed from \"libc.so.6\" in origin file to \"libc.so.7\" in comparison file.",
-            "libsystemd-shared-249": "Changed from \"libsystemd-shared-249.so\" in origin file to \"libsystemd-shared-249.so.0.0\" in comparison file."
-        }
-    }
-}

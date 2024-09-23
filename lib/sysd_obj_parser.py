@@ -89,10 +89,13 @@ class SystemdFileFactory:
 
 
 	def __init__(self, remote_path: str) -> None:
-		"""The SystemdFile class is the initial object created for each file to be parsed.  After
+		"""Constructor for a Systemd Unit File parsing factory.
+		
+		The SystemdFile class is the initial object created for each file to be parsed. After
 		creating this object shell, the systemd_mapping.py file will decide which type of file
-		it should be parsed as, and create a subclass modeled for that file type.  This class
-		also contains the .record() and .info() handlers for each of the subclasses."""
+		it should be parsed as, and create a subclass modeled for that file type. This class
+		also contains the .record() and .info() handlers for each of the subclasses.
+		"""
 		self.remote_path = remote_path
 
 	def parse_file(self, unit_path: str, unit_name: str) -> Dict[str, Any]:
@@ -114,36 +117,36 @@ class SystemdFileFactory:
 			logging.warning( f'Error determining which systemd file type "{self.unit_file_fp}" is' )
 
 	def parse_dep_dir(self, path: str) -> "DepDir":
-		"""SystemdFileFactory.parse_dep_dir()
+		"""Parse any unit file dependency directories found.
 
 		After the SystemdFile object is created, the systemd_mapping.py file checks to see what
 		type of subclass to create, and then sends it to the proper parse_file() function.
 		parse_dep_dir() creates a new DepDir subclass where it is then verified as a valid
-		dependency or config file directory, and then parsed accordingly."""
-
+		dependency or config file directory, and then parsed accordingly.
+		"""
 		self.dep_dir = DepDir()
 		self.dep_dir.check_dep_dir(self.remote_path, path, self.name)
 		return self.dep_dir
 
 	def parse_sym_link(self, path: str) -> "SymLink":
-		"""SystemdFileFactory.parse_sym_link()
+		"""Parse any unit file symbolic links that are found.
 
 		After the SystemdFile object is created, the systemd_mapping.py file checks to see what
 		type of subclass to create, and then sends it to the proper parse_file() function.
 		parse_sym_link() creates a new SymLink subclass where it is then verified as a valid
-		symbolic link, and then parsed accordingly."""
-
+		symbolic link, and then parsed accordingly.
+		"""
 		self.sym_link = SymLink(self.remote_path, path, self.name)
 		return self.sym_link
 
 	def parse_unit_file(self, path: str) -> "UnitFile":
-		"""SystemdFileFactory.parse_unit_file()
+		"""Parse any unit files that are found.
 
 		After the object is created, the systemd_mapping.py file checks to see what
 		type of subclass to create, and then sends it to the proper parse_file() function.
 		parse_unit_file() creates a new UnitFile subclass where it is verified as a valid
-		unit file, and then parsed accordingly."""
-
+		unit file, and then parsed accordingly.
+		"""
 		self.unit_file = UnitFile(path, self.name)
 		self.unit_file.update_unit_file(self.remote_path, path, self.name)
 		self.unit_file.check_implicit_dependencies(self.unit_file.unit_type)
@@ -155,12 +158,14 @@ class DepDir:
 
 
 	def __init__(self) -> None:
-		"""The SystemdFileFactory.DepDir class will be created and will automatically call check_dep_dir()
+		"""Create an object representing a Systemd dependency directory.
+		
+		The SystemdFileFactory.DepDir class will be created and will automatically call check_dep_dir()
 		to validate that it is a valid dependency or config directory any time systemd_mapping.py
 		discovers what it believes to be a dep dir.  If it is a valid dep dir, the directory will
 		be parsed to record all of the dependencies within that folder along with which type of
-		dependencies are being created."""
-
+		dependencies are being created.
+		"""
 		self.dep_dir_paths: List[str] = []
 		self.config_files: List[str] = []
 		self.wants_deps: List[str] = []
@@ -168,8 +173,11 @@ class DepDir:
 		self.all_deps: List[str] = []
 
 	def check_dep_dir(self, remote_path: str, path: str, dep_dir: str) -> None:
-		"""Validate a dep dir has been encountered.  Can be one of .d, .wants, or .requires 
-		directories. After validation, record the dependencies."""
+		"""Validate a dep dir has been encountered.
+		
+		Can be one of .d, .wants, or .requires directories. After validation, record the
+		dependencies.
+		"""
 		self.dep_type: str = dep_dir.split('.')[-1]
 
 		if self.dep_type == 'd':
@@ -194,14 +202,20 @@ class DepDir:
 		self.config_files.extend(dir_items)
 
 	def update_wants_deps(self, dir_items: List[str]) -> None:
-		"""Add items from the dir to both the wants_deps and all_deps lists. This is so 
-		we can independently keep track of which units are wanted and which are required."""
+		"""Add items from the dir to both the wants_deps and all_deps lists.
+		
+		This allows us to independently keep track of which units are wanted and which
+		are required.
+		"""
 		self.wants_deps.extend(dir_items)
 		self.all_deps.extend(dir_items)
 
 	def update_requires_deps(self, dir_items: List[str]) -> None:
-		"""Adds all items from the dir to both the requires_deps and all_deps lists. This is so 
-		we can independently keep track of which units are wanted and which are required."""
+		"""Add all items from the dir to both the requires_deps and all_deps lists.
+		
+		This allows us to independently keep track of which units are wanted and which
+		are required.
+		"""
 		self.requires_deps.extend(dir_items)
 		self.all_deps.extend(dir_items)
 
@@ -253,13 +267,13 @@ class SymLink:
 			logging.warning( f'{sl_full_path} is not a sym link but is being parsed as one.' )
 
 	def get_target_path(self, sl_full_path: str) -> str:
-		"""SystemdFileFactory.SymLink.get_target_path()
+		"""Return the absolute path that a unit file symbolic link points to.
 		
 		Checks to see if the target that the symbolic link is pointing to is specified through absolute 
 		or relative pathing, and converts it to an absolute path. The resulting path will be specified as 
 		the system path the sym link WOULD resolve to if the system were booting up, and the remote path 
-		will be dropped if it is present."""
-
+		will be dropped if it is present.
+		"""
 		sl_target_path = Path( sl_full_path ).readlink()
 
 		# Path.absolute() is wonky if we aren't in the same dir as the symlink
@@ -298,24 +312,27 @@ class UnitFile:
 
 
 	def __init__(self, path: str, unit_file: str) -> None:
-		"""The SystemdFileFactory.UnitFile class is designed to ensure that each unit file is its own validated object.
-		The intent is to make sure that there are no unknown or weird unit file types or unit options slipping
-		through the cracks, and to verify that we know every unit file type that and option that is being
-		recorded. If there are any weird unit file extensions, unit types, or unit file options being used we
-		should investigate them."""
-
+		"""Create an object representing a Systemd unit file.
+		
+		The SystemdFileFactory.UnitFile class is designed to ensure that each unit file is its own
+		validated object. The intent is to make sure that there are no unknown or weird unit file
+		types or unit options slipping through the cracks, and to verify that we know every unit
+		file type that and option that is being recorded. If there are any weird unit file
+		extensions, unit types, or unit file options being used we should investigate them.
+		"""
 		self.name = unit_file
 		self.path = path
 		self.unit_type = self.get_unit_type(self.name)
 		self.unit_struct: Dict[str, List[str]] = { 'metadata': { 'file_type': 'unit_file'} }
 
 	def get_unit_type(self, unit_name: str) -> str:
-		"""SystemdFileFactory.UnitFile.get_unit_type()
+		"""Return the type of a unit file.
 		
-		Designed to make sure that each unit file has a valid suffix. The intent is to make sure that there are no unknown 
-		unit file types slipping through the cracks, and to verify that we are aware of all unit file types being recorded. 
-		If there are any unknown unit file extensions or unit file types being used we should investigate them."""
-
+		Designed to make sure that each unit file has a valid suffix. The intent is to make sure
+		that there are no unknown unit file types slipping through the cracks, and to verify that
+		we are aware of all unit file types being recorded. If there are any unknown unit file
+		extensions or unit file types being used we should investigate them.
+		"""
 		if unit_name.split('.')[-1] in unit_file_lists.possible_unit_opts:
 			logging.debug( f'"{unit_name}" is a valid unit file type' )
 			return unit_name.split('.')[-1]
@@ -324,11 +341,12 @@ class UnitFile:
 			return 'target'
 
 	def update_unit_file(self, remote_path: str, path: str, unit_file: str) -> None:
-		"""SystemdFileFactory.UnitFile.update_unit_file()
+		"""Parse a unit file and record any interesting entries.
 		
-		Opens the specified unit file and parses it line by line. If an '=' is encountered on any of the lines it considers this 
-		an option line, and will check the option and it's associated arguments to make sure they are valid before recording."""
-
+		Opens the specified unit file and parses it line by line. If an '=' is encountered on any
+		of the lines it considers this an option line, and will check the option and it's
+		associated arguments to make sure they are valid before recording.
+		"""
 		try:
 			with open( f'{remote_path}{path}{unit_file}', 'r' ) as in_file:
 				for line in in_file:
@@ -362,11 +380,12 @@ class UnitFile:
 			logging.warning( e )
 
 	def check_option(self, line_option: str) -> None:
-		"""SystemdFileFactory.UnitFile.check_option()
+		"""Return valid unit file options based on the unit file type.
 		
-		Checks that each option being parsed is an option accepted by systemd.  Valid options are contained in
-		the many section option lists in the unit_file_lists.py file, and may need to be updated periodically."""
-
+		Checks that each option being parsed is an option accepted by systemd.  Valid options
+		are contained in the many section option lists in the unit_file_lists.py file, and may
+		need to be updated periodically.
+		"""
 		for option_list in unit_file_lists.possible_unit_opts[self.unit_type]:
 			if line_option in option_list:
 				return line_option
@@ -375,21 +394,22 @@ class UnitFile:
 		return line_option
 
 	def format_arguments(self, line_option: str, line_arguments: str) -> None:
-		"""SystemdFileFactory.UnitFile.format_arguments()
+		"""Return a list of arguments formatted according to the argument type.
 		
-		Checks to see if valid options have space delimited arguments or not and records arguments based on this specification."""
-
+		Checks to see if valid options have space delimited arguments or not and records arguments
+		based on this specification.
+		"""
 		if line_option in unit_file_lists.space_delim_opts:
 			return line_arguments.split()
 
 		return [line_arguments]
 
 	def check_implicit_dependencies(self, unit_type: str) -> None:
-		"""SystemdFileFactory.UnitFile.check_implicit_dependencies()
+		"""Return any implicit dependencies for a unit file.
 		
 		Handle all implicit deps that are created based on the unit file type. Default 
-		deps are automatically placed in the unit file upon creation, implicit deps are not."""
-
+		deps are automatically placed in the unit file upon creation, implicit deps are not.
+		"""
 		# systemd.automount(5), automatic dependencies, implicit dependencies
 		if unit_type == 'automount':
 			if 'Before' in self.unit_struct['metadata']:
