@@ -57,11 +57,11 @@ def parse_fstab() -> Dict[ str, Dict[str, Union[ Dict[str, str], str ]] ]:
 
 
 def resolve_device_entry( entry: str ) -> str:
+	"""If /etc/fstab entry has a UUID entry, parse accordingly."""
+	if 'UUID' in entry:
+		return f'/dev/disk/by-uuid{entry.split("=")[-1]}'
 
-    if 'UUID' in entry:
-        return f'/dev/disk/by-uuid{entry.split("=")[-1]}'
-
-    return entry
+	return entry
 
 
 def mount_path_to_unit_name( device_name: str, mount_path: str, fs_type: str ) -> str:

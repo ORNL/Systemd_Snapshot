@@ -30,7 +30,6 @@ Description:  This is the main logic for the tool that searches for which files 
 
 import logging
 import re
-import pdb
 
 from subprocess import run
 from pathlib import Path
