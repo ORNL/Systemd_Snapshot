@@ -28,8 +28,8 @@ Description:  This is the main logic for the tool that creates the cytoscape gra
 
 from collections import defaultdict
 
-from lib.element import ElementFactory, Element, Unit, Alias, Command, Executable, Library, String
-from lib.unit_file_lists import ms_only_keys
+from element import ElementFactory, Element, Unit, Alias, Command, Executable, Library, String
+from unit_file_lists import ms_only_keys
 
 
 

@@ -55,17 +55,16 @@ Description: This tool creates a systemd snapshot of either locally or remotely 
 """
 
 import logging
-import pdb
 
 from argparse   import ArgumentParser, RawDescriptionHelpFormatter
 from pathlib    import Path
 
-from lib.systemd_mapping    import map_systemd_full, map_dependencies, compare_map_files
-from lib.file_handlers      import create_output_file, load_input_file
+from systemd_mapping    import map_systemd_full, map_dependencies, compare_map_files
+from file_handlers      import create_output_file, load_input_file
 
 # JMC: for graphing capability in Cytoscape.
-from lib.grapher          import Grapher
-from lib.style            import Style
+from grapher          import Grapher
+from style            import Style
 
 
 def init_logger( name: str, level: str ) -> logging:
@@ -204,8 +203,11 @@ systemd_snapshot.py -a diff -p snap1_ms.json -c snap2_ms.json   - compare the di
 
     if args.user_path == Path('/'):
         user_path = ''
+    elif args.user_path.exists():
+        user_path = str( args.user_path.resolve() )
     else:
-        user_path = str( args.user_path.absolute() )
+        log.error( f'Filepath does not exist. Please put a valid filepath')
+        exit(1)
         
     log.debug( f'path given: {user_path}' )
     log.debug( f'action: {args.action}' )

@@ -28,8 +28,8 @@ import re
 
 from pathlib import Path
 
-from . import colors
-from lib import unit_file_lists
+import colors
+import unit_file_lists
 
 class ElementFactory:
     """A class whose instances construct Element instances for use in graphing Systemd

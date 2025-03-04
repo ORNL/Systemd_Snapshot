@@ -35,7 +35,7 @@ from subprocess import run
 from pathlib import Path
 from typing import List, Dict, Set, Tuple, Union
 
-from lib import unit_file_lists, sysd_obj_parser, dep_obj_parser
+import unit_file_lists, sysd_obj_parser, dep_obj_parser
 
 
 def get_bin_path(remote_path: str, cmd_string: str) -> str:
@@ -176,9 +176,9 @@ def check_binaries(
             directive options.
     """
     exec_deps = { 'binaries': {}, 'libraries': {}, 'files': {}, 'strings': {} }
-    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/var/lib/',
+    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/lib/systemd/',
                 '/usr/lib/systemd/', '/usr/lib/', '/usr/lib/x86_64-linux-gnu/',
-                '/usr/lib32/', '/usr/lib64/', '/usr/libexec/' ]
+                '/usr/lib32/', '/usr/lib64/', '/usr/libexec/', '/var/lib' ]
     unrecorded_binaries = []
 
     for option in unit_struct:
@@ -313,7 +313,7 @@ def map_systemd_full(master_struct: Dict, log: logging) -> dict:
     """
     log.info('Beginning recording of all files in Systemd folders.')
     remote_path = master_struct['remote_path']
-    master_struct.update( create_skeletor('dict') )
+    master_struct.update( spawn_skeletor('dict') )
 
     UnitFactory = sysd_obj_parser.SystemdFileFactory(remote_path)
 
@@ -357,7 +357,7 @@ def map_systemd_full(master_struct: Dict, log: logging) -> dict:
     log.info( f'Finished recording all Systemd unit files into Master Structure' )
     log.vdebug( f'\n\n{master_struct}' )
 
-    fstab = sysd_obj_parser.parse_fstab()
+    fstab = sysd_obj_parser.parse_fstab(remote_path)
 
     for unit in fstab:
         if unit not in master_struct:
@@ -507,14 +507,14 @@ def record_binary_metadata( new_dep_unit: 'DepMapUnit', master_struct, dependenc
         binary = get_bin_path(master_struct['remote_path'], command)
 
         if 'binaries' not in dependency_map[unit]:
-            dependency_map[unit].update( create_skeletor('set') )
+            dependency_map[unit].update( spawn_skeletor('set') )
         dependency_map[unit]['binaries'].update({ binary })
         find_lib_deps( master_struct['binaries'][binary], master_struct['libraries'], dependency_map[unit]['libraries'] )
         dependency_map[unit]['files'].update( master_struct['files'][binary] )
         dependency_map[unit]['strings'].update( master_struct['strings'][binary] )
 
 
-def create_skeletor( collection: str ) -> Dict[str, Set]:
+def spawn_skeletor( collection: str ) -> Dict[str, Set]:
     """Create a standardized set of dictionary entries for various functions."""
     if collection.lower() == 'dict':
         skeleton = {
@@ -761,11 +761,11 @@ def compare_map_files(
                     elif isinstance(origin_file[tlk][subkey][item], str):
                         if origin_file[tlk][subkey][item] != comp_file[tlk][subkey][item]:
                             if tlk not in diff_dict:
-                                diff_dict.update({ tlk: { subkey: { item: f'Origin file has: "{origin_file[tlk][subkey][item]}, but comparison file has: "{comp_file[tlk][subkey][item]}"'} } })
+                                diff_dict.update({ tlk: { subkey: { item: f'Origin file has: "{origin_file[tlk][subkey][item]}", but comparison file has: "{comp_file[tlk][subkey][item]}"'} } })
                             elif subkey not in diff_dict[tlk]:
-                                diff_dict[tlk].update({ subkey: { item: f'Origin file has: "{origin_file[tlk][subkey][item]}, but comparison file has: "{comp_file[tlk][subkey][item]}"' } })
+                                diff_dict[tlk].update({ subkey: { item: f'Origin file has: "{origin_file[tlk][subkey][item]}", but comparison file has: "{comp_file[tlk][subkey][item]}"' } })
                             else:
-                                diff_dict[tlk][subkey].update({ item: f'Origin file has: "{origin_file[tlk][subkey][item]}, but comparison file has: "{comp_file[tlk][subkey][item]}"' })
+                                diff_dict[tlk][subkey].update({ item: f'Origin file has: "{origin_file[tlk][subkey][item]}", but comparison file has: "{comp_file[tlk][subkey][item]}"' })
 
                     elif isinstance(origin_file[tlk][subkey][item], list):
                         diff_return = compare_lists( origin_file[tlk][subkey][item], comp_file[tlk][subkey][item], diff_dict, tlk )

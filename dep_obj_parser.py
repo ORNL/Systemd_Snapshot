@@ -27,7 +27,8 @@ Description:  This file is designed to instantiate the DepMapUnit objects and
 import logging
 
 from typing import Dict, List, Set, Tuple, Any, Union
-from lib import unit_file_lists
+
+import unit_file_lists
 
 
 class DepMapUnit:

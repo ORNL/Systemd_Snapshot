@@ -30,15 +30,19 @@ from pathlib import Path
 from os import chdir
 from typing import Any, Dict, List, Union
 
-from lib import unit_file_lists
+import unit_file_lists
 
 
-def parse_fstab() -> Dict[ str, Dict[str, Union[ Dict[str, str], str ]] ]:
+def parse_fstab(remote_path: str) -> Dict[ str, Dict[str, Union[ Dict[str, str], str ]] ]:
 	"""Return a dictionary describing an fstab entry in unit file format."""
 	fstab = {}
 
-	for line in open('/etc/fstab', 'r').readlines():
-		if '#' not in line[0]:
+	if not Path(f'{remote_path}/etc/fstab').exists():
+		logging.warning('fstab could not be found. Skipping dynamic unit file generation...')
+		return fstab
+
+	for line in open(f'{remote_path}/etc/fstab', 'r').readlines():
+		if '#' not in line[0] and line != '\n':
 			line = line.split()
 			fstab.update({
 				f'/run/systemd/generator/{mount_path_to_unit_name( line[0], line[1], line[2] )}': {
@@ -285,9 +289,9 @@ class SymLink:
 				chdir( sl_target_path.parent )
 			sl_target_path = Path.cwd()
 			chdir(current_dir)
-	
+
 		if self.remote_path != '' and self.remote_path in str(sl_target_path):
-			sl_target_path = str(sl_target_path.parent).split(self.remote_path)[-1]
+			sl_target_path = str(sl_target_path).split(self.remote_path)[-1]
 
 		sl_target_path = str(sl_target_path).split( f'/{self.target_unit}' )[0]
 
