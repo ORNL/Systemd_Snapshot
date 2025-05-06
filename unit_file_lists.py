@@ -868,3 +868,29 @@ ms_only_keys = [
     This is a list of keys that have different formatting than the unit file entries and shouldn't be 
     parsed by the dependency map.
 """
+
+sys_lib_paths = [
+    '/lib/',
+    '/lib32/',
+    '/lib64/',
+    '/libexec/',
+    '/lib/systemd/',
+    '/usr/lib/systemd/',
+    '/usr/lib/',
+    '/usr/lib/x86_64-linux-gnu/',
+    '/usr/lib32/',
+    '/usr/lib64/',
+    '/usr/libexec/',
+    '/var/lib'
+]
+"""
+    List of paths that Linux OSes use to store libraries by default
+"""
+
+sys_bin_paths = [
+    '/bin/',
+    '/usr/bin/'
+]
+"""
+    List of paths that Linux OSes use to store binaries by default
+"""

@@ -46,14 +46,14 @@ def parse_fstab(remote_path: str) -> Dict[ str, Dict[str, Union[ Dict[str, str],
 			line = line.split()
 			fstab.update({
 				f'/run/systemd/generator/{mount_path_to_unit_name( line[0], line[1], line[2] )}': {
-					'metadata': { 'unit_type': 'fstab_unit' },
-					'Description':      'This is a unit file that will be dynamically created by systemd-fstab-generator',
-					'Documentation':    'man:fstab(5) man:systemd-fstab-generator(8)',
-					'SourcePath':       '/etc/fstab',
-					'Where':            line[1],
-					'What':             resolve_device_entry( line[0] ),
-					'Type':             line[2],
-					'Options':          line[3]
+					'metadata': { 'file_type': 'fstab_unit' },
+					'Description':      [ 'This is a unit file that will be dynamically created by systemd-fstab-generator' ],
+					'Documentation':    [ 'man:fstab(5) man:systemd-fstab-generator(8)' ],
+					'SourcePath':       [ '/etc/fstab' ],
+					'Where':            [ line[1] ],
+					'What':             [ resolve_device_entry( line[0] ) ],
+					'Type':             [ line[2] ],
+					'Options':          [ line[3] ]
 				}
 			})
 

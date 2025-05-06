@@ -176,9 +176,7 @@ def check_binaries(
             directive options.
     """
     exec_deps = { 'binaries': {}, 'libraries': {}, 'files': {}, 'strings': {} }
-    lib_paths = [ '/lib/', '/lib32/', '/lib64/', '/libexec/', '/lib/systemd/',
-                '/usr/lib/systemd/', '/usr/lib/', '/usr/lib/x86_64-linux-gnu/',
-                '/usr/lib32/', '/usr/lib64/', '/usr/libexec/', '/var/lib' ]
+    lib_paths = unit_file_lists.sys_lib_paths
     unrecorded_binaries = []
 
     for option in unit_struct:
@@ -474,11 +472,13 @@ def map_dependencies( master_struct: Dict, origin_unit: str, log: logging ) -> d
     log.info('Finished recording all dependency relationships...')
     log.vdebug( f'\n\n{dependency_map}' )
 
-    log.info( 'Searching for fstab units that will be dynamically created during bootup...' )
-    dependency_map['dynamic_mount_points'] = record_fstab_units( dependency_map, master_struct )
+    if origin_unit == 'default.target':
 
-    log.info('Creating nested mount unit dependencies...')
-    record_nested_mounts( dependency_map )
+        log.info( 'Searching for fstab units that will be dynamically created during bootup...' )
+        dependency_map['dynamic_mount_points'] = record_fstab_units( dependency_map, master_struct )
+
+        log.info('Creating nested mount unit dependencies...')
+        record_nested_mounts( dependency_map )
 
     return dependency_map
 
@@ -652,7 +652,7 @@ def record_fstab_units( dependency_map, master_struct ) -> None:
             new_dep_unit = dep_obj_parser.DepMapUnit( unit_name, 'None', 'None' )
             new_dep_unit.load_from_ms( master_struct[entry] )
             # Create an actual unit file entry and record it to dep map while we have the obj
-            dependency_map.update({ new_dep_unit.name: new_dep_unit.record() })
+            dependency_map.update({ new_dep_unit.unit_name: new_dep_unit.record() })
 
             # Only fstab units will dynamically mount things, so only these units should
             # create entries here

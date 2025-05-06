@@ -25,6 +25,7 @@ Description:  This module parses a master struct to create a graph of all unit f
 """
 
 import re
+import pdb
 
 from pathlib import Path
 
@@ -75,7 +76,7 @@ class ElementFactory:
         if ftype == 'sym_link':
             yield Alias( uid, data, self.log )
     
-        elif ftype == 'unit_file':
+        elif ftype == 'unit_file' or ftype == 'fstab_unit':
             # Split out two different items in the graph from a element file type:
             # 1. DropIn "conf" files
             # 2. Systemd Element files
@@ -886,6 +887,7 @@ class CommandLine:
         self.arguments = None
         self.__parse_command_string( cstr )
 
+
     def get_executable( self ):
         """Return the executable command string; this usually includes the full path.
 
@@ -945,6 +947,8 @@ class CommandLine:
             i += 1
         # set the executable WITHOUT the special prefix characters.
         self.executable = executable[i:]
+
+
 
 class Command( Element ):
     """An Element that represents a SEQUENCE of executable commands (usually only one tho) that are associated with 
@@ -1074,6 +1078,7 @@ class Command( Element ):
             # the child set is empty.
             for cmd in self.commands:
                 self._children.add( Executable( cmd.get_executable(), self.remote_path, self.master_struct, self.log ) )
+
         return self._children
 
     def add_to_graph( self, G ):
@@ -1273,9 +1278,16 @@ class Executable( Element ):
             # only do this operation one time.
             # do not need a / character here because the remote path does NOT end in one
             # and the executable is a full system path that begins with a /
-
-            dlib_names = self.master_struct['libraries'][self.executable]
-            self.dlibs = { Library( name, self.log ) for name in dlib_names }
+            if self.executable in self.master_struct['binaries']:
+                dlib_names = self.master_struct['binaries'][self.executable]
+                self.dlibs = { Library( name, self.log ) for name in dlib_names }
+            # Some unit files expect PATH to be resolvable for binaries
+            else:
+                for bin_path in unit_file_lists.sys_bin_paths:
+                    if f'{bin_path}{self.executable}' in self.master_struct['binaries']:
+                        # Don't want to reassign self.exe to maintain ground truth of unit files
+                        dlib_names = self.master_struct['binaries'][f'{bin_path}{self.executable}']
+                        self.dlibs = { Library( name, self.log ) for name in dlib_names }
 
         return self.dlibs
 
@@ -1291,8 +1303,14 @@ class Executable( Element ):
         """
         if not self.fstrings:
             # only do this operation one time.
-
-            file_strings = self.master_struct['files'][self.executable]
+            if self.executable in self.master_struct['files']:
+                file_strings = self.master_struct['files'][self.executable]
+            # Some unit files expect PATH to be resolvable for binaries
+            else:
+                for bin_path in unit_file_lists.sys_bin_paths:
+                    if f'{bin_path}{self.executable}' in self.master_struct['files']:
+                        # Don't want to reassign self.exe to maintain ground truth of unit files
+                        file_strings = self.master_struct['files'][f'{bin_path}{self.executable}']
 
             for s in file_strings:
                 str_elt = String( s.strip(), 'FILE', self.log )
@@ -1312,7 +1330,14 @@ class Executable( Element ):
             # do not need a / character here because the remote path does NOT end in one
             # and the executable is a full system path that begins with a /
 
-            path_strings = self.master_struct['strings'][self.executable]
+            if self.executable in self.master_struct['strings']:
+                path_strings = self.master_struct['strings'][self.executable]
+            # Some unit files expect PATH to be resolvable for binaries
+            else:
+                for bin_path in unit_file_lists.sys_bin_paths:
+                    if f'{bin_path}{self.executable}' in self.master_struct['strings']:
+                        # Don't want to reassign self.exe to maintain ground truth of unit files
+                        path_strings = self.master_struct['strings'][f'{bin_path}{self.executable}']
 
             for s in path_strings:
                 str_elt = String( s.strip(), 'PATH', self.log )
