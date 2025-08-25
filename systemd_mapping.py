@@ -57,10 +57,14 @@ def get_bin_path(remote_path: str, cmd_string: str) -> str:
     binary = cmd_string.split()[0]
     binary = remove_prefixes(binary)
 
-    if not Path( binary ).is_file():
-        for bin_path in bin_paths:
-            if Path( f'{remote_path}{bin_path}{binary}' ).is_file():
-                return f'{bin_path}{binary}'
+    try:
+        if not Path( binary ).is_file():
+            for bin_path in bin_paths:
+                if Path( f'{remote_path}{bin_path}{binary}' ).is_file():
+                    return f'{bin_path}{binary}'
+
+    except PermissionError as e:
+        print(f'Got permissions error when attempting to check for {binary}')
 
     return binary
 
@@ -596,7 +600,11 @@ def find_lib_deps(
     for lib in search_libs:
         if lib not in dep_map_entry_libs:
             dep_map_entry_libs.add( lib )
-            find_lib_deps( libraries_dict[lib], libraries_dict, dep_map_entry_libs )
+            try:
+                find_lib_deps( libraries_dict[lib], libraries_dict, dep_map_entry_libs )
+            except KeyError as e:
+                # TODO: modify this as the master struct is being built instead of here
+                print(f'{e} was not found in libraries! Skipping...')
 
 
 def record_nested_mounts( dependency_map: Dict[str, Dict[str, Union[str, List[str]] ] ] ) -> None:
